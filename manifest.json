@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "微光·求职搭子",
+  "description": "一款带夜视功能的职场翻译机。别怕黑，这里有光。把困难留给 AI，把尊严留给自己。",
+  "version": "2.2",
+  "permissions": ["storage", "unlimitedStorage", "scripting", "tabs", "activeTab", "notifications"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://*.zhipin.com/*",
+    "https://api.deepseek.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.zhipin.com/*"],
+      "js": ["html2canvas.min.js", "content.js"],
+      "css": ["style.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "style.css",
+        "injected_probe.js",
+        "spa_monitor.js",
+        "images/*"
+      ],
+      "matches": [
+        "https://*.zhipin.com/*"
+      ]
+    }
+  ]
+}
