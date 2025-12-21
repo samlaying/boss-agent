@@ -1,5 +1,5 @@
-// content.js - V20.0 (右侧数据源唯一真理版)
-// console.log("🚀 Glimmer Vision: V20.0 Single Source of Truth");
+// content.js - V20.1 (右侧数据源唯一真理版)
+// console.log("🚀 Glimmer Vision: V20.1 Single Source of Truth");
 
 // === 开启调试日志 ===
 console.log("🚀 [BossHelper] Content Script Loaded v" + chrome.runtime.getManifest().version);
@@ -694,6 +694,7 @@ function initWrapper() {
               <button id="btn-capture" style="flex:1; padding:8px; background:#fff; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">📷 截图报告</button>
           </div>
           <div style="text-align:right; margin-top:10px; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+              <button id="btn-auto-apply" style="display:none; padding:6px 12px; border:none; color:#fff; background:linear-gradient(90deg, #00bebd, #00a0a0); border-radius:20px; font-size:12px; cursor:pointer; font-weight:700;">⚡ 一键招呼</button>
               <button id="btn-ignore" style="display:none; padding:6px 12px; border:1px solid var(--error-color); color:var(--error-color); background:#fff; border-radius:20px; font-size:12px; cursor:pointer; font-weight:500;">🚫 不感兴趣</button>
           </div>
       </div>
@@ -3148,6 +3149,22 @@ function bindSmartOpenerEvents() {
 }
 
 function renderFullReport(jobData, aiData) {
+    // Cache the latest analysis for one-click greeting
+    window.lastGlimmerData = { jobData, aiData };
+    const autoApplyBtn = document.getElementById('btn-auto-apply');
+    if (autoApplyBtn) {
+        const score = (aiData && aiData.summary && typeof aiData.summary.score === 'number')
+            ? aiData.summary.score
+            : (aiData ? aiData.score : 0);
+        autoApplyBtn.style.display = 'inline-block';
+        if (score < 70) {
+            autoApplyBtn.style.background = '#999';
+            autoApplyBtn.title = `分数 (${score}) 低于 70，需确认`;
+        } else {
+            autoApplyBtn.style.background = 'linear-gradient(90deg, #00bebd, #00a0a0)';
+            autoApplyBtn.title = '';
+        }
+    }
     document.getElementById('report-content').style.display = 'block';
 
     // 1. 刷新身份条 (使用精准 jobData)
@@ -5106,6 +5123,52 @@ function bindEvents() {
     });
 
     safeBind('btn-ignore', markAsIgnore);
+
+    safeBind('btn-auto-apply', async () => {
+        const btn = document.getElementById('btn-auto-apply');
+        if (!window.lastGlimmerData) {
+            alert("请先点击【深度剖析】，生成策略后再使用一键招呼。");
+            return;
+        }
+
+        const { aiData } = window.lastGlimmerData;
+        const originalText = btn.innerText;
+        const score = (aiData && aiData.summary && typeof aiData.summary.score === 'number')
+            ? aiData.summary.score
+            : (aiData ? aiData.score : 0);
+
+        if (score < 70) {
+            if (!confirm(`当前岗位匹配度仅 ${score} 分，确定要发送招呼吗？`)) {
+                return;
+            }
+        }
+
+        try {
+            btn.innerText = "发送中...";
+            btn.disabled = true;
+
+            const scripts = (aiData && aiData.interview_guide && aiData.interview_guide.opening_scripts) || [];
+            const bestScript = scripts.find(s => s && s.style === 'Direct') || scripts[0];
+            const greetingText = bestScript && bestScript.content
+                ? bestScript.content
+                : "您好，我对该岗位很感兴趣，期待进一步沟通。";
+
+            await autoGreet(greetingText);
+
+            btn.innerText = "✅ 已发送";
+        } catch (error) {
+            console.error("Auto apply failed:", error);
+            btn.innerText = "❌ 失败";
+            alert("发送失败，请检查是否已登录或聊天窗口是否被拦截。");
+        } finally {
+            setTimeout(() => {
+                if (btn.innerText !== "✅ 已发送") {
+                    btn.innerText = originalText;
+                }
+                btn.disabled = false;
+            }, 2000);
+        }
+    });
     
     // btn-auto-greet 已移除
     // safeBind('ai-chat-input', function() { this.select(); document.execCommand('copy'); });
@@ -6103,4 +6166,3 @@ function generateHashCode(str) {
     }
     return Math.abs(hash).toString(16);
 }
-
