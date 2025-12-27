@@ -3218,7 +3218,7 @@ async function autoApplyNext() {
     }
 
     const sendResult = await withTimeout(
-        autoGreet(greetingText),
+        autoGreet(greetingText, { openInNewTab: true, detailUrl }),
         12000,
         "auto_greet"
     );
@@ -3228,6 +3228,8 @@ async function autoApplyNext() {
             HistoryManager.add(currentJobId, 3, 0, "发送超时");
         }
         card.setAttribute('data-reason', '⏱️ 发送超时');
+    } else if (sendResult.value === "pending") {
+        card.setAttribute('data-reason', '💬 已打开新沟通页');
     } else if (sendResult.value && currentJobId) {
         HistoryManager.markGreeted(currentJobId);
     } else {
@@ -6012,7 +6014,7 @@ async function markAsIgnore() {
 }
 
 // ================= 6. 自动投递逻辑 =================
-async function autoGreet(greetingText) {
+async function autoGreet(greetingText, options = {}) {
     // 兼容旧按钮（如果存在）
     const btn = document.getElementById('btn-auto-greet');
     if (btn) {
@@ -6021,6 +6023,7 @@ async function autoGreet(greetingText) {
     }
 
     try {
+        const { openInNewTab, detailUrl } = options;
         let sendSuccess = false;
         // 优先使用传入的话术，否则尝试读取输入框
         let greeting = greetingText;
@@ -6050,7 +6053,34 @@ async function autoGreet(greetingText) {
         // 同时也写入剪贴板作为兜底
         navigator.clipboard.writeText(greeting).catch(e => console.error("Clipboard failed", e));
 
-        // 1. 寻找“立即沟通”按钮 (增强版查找逻辑)
+        // 1. 如果要求新开沟通页，优先用详情链接新开
+        if (openInNewTab && detailUrl) {
+            let absoluteDetail = detailUrl;
+            try {
+                absoluteDetail = new URL(detailUrl, window.location.origin).toString();
+            } catch (e) {}
+
+            if (!chrome.runtime || !chrome.runtime.id) {
+                throw new Error("Extension context invalidated");
+            }
+
+            const openRes = await chrome.runtime.sendMessage({ action: "open_chat_tab", url: absoluteDetail });
+            if (openRes && openRes.success) {
+                showToast("已打开新沟通页，话术将自动填充", 3000);
+                if (btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
+                return "pending";
+            }
+
+            const win = window.open(absoluteDetail, '_blank');
+            if (win) {
+                showToast("已打开新沟通页，话术将自动填充", 3000);
+                if (btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
+                return "pending";
+            }
+            console.warn("⚠️ [BossDebug] 新沟通页打开失败，回退当前页模式");
+        }
+
+        // 2. 寻找“立即沟通”按钮 (增强版查找逻辑)
         // 策略：先找特定Class，如果找不到，再进行宽泛文本匹配
         let validBtn = null;
         
