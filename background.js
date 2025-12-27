@@ -337,6 +337,9 @@ const CONFIG_GEN_PROMPT = `
 }
 `;
 
+// 默认系统提示词 (用于打招呼生成)
+const DEFAULT_CHAT_SYSTEM_PROMPT = `你代表求职者。你的风格：自信、专业、简洁。请基于岗位要求生成一段自然得体的打招呼话术。`;
+
 // ===============================================
 // 🛡️ 隐私脱敏工具函数
 // ===============================================
@@ -545,6 +548,117 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // 保持消息通道开启
     }
 
+    // === 打招呼生成接口 ===
+    if (request.action === "generate_greeting") {
+        console.log("💬 收到打招呼生成请求...");
+        const { jobText, hrName, bossTitle } = request;
+
+        chrome.storage.local.get(['apiKey', 'chatSystemPrompt', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
+            try {
+                let clientId = data.clientId;
+                if (!clientId) {
+                    clientId = generateUUID();
+                    chrome.storage.local.set({ clientId });
+                }
+
+                const computeMode = data.computeMode || 'energy';
+
+                if (computeMode === 'custom_key') {
+                    if (!data.apiKey) {
+                        sendResponse({ success: false, error: "请先在插件配置中输入 DeepSeek API Key" });
+                        return;
+                    }
+                    await handleDirectGreetingCall(
+                        data.apiKey,
+                        data.chatSystemPrompt,
+                        data.resume,
+                        jobText,
+                        hrName,
+                        bossTitle,
+                        sendResponse,
+                        sender.tab ? sender.tab.id : null
+                    );
+                } else {
+                    const energy = data.energyCount !== undefined ? data.energyCount : 3;
+                    if (energy < 1) {
+                        sendResponse({ success: false, error: "ENERGY_EXHAUSTED" });
+                        return;
+                    }
+                    await handleServerlessGreetingCall(
+                        clientId,
+                        data.chatSystemPrompt,
+                        data.resume,
+                        jobText,
+                        hrName,
+                        bossTitle,
+                        sendResponse,
+                        sender.tab ? sender.tab.id : null,
+                        data.userKey
+                    );
+                }
+            } catch (error) {
+                console.error("❌ 处理流程异常:", error);
+                sendResponse({ success: false, error: error.message });
+            }
+        });
+
+        return true;
+    }
+
+    if (request.action === "open_chat_tab") {
+        const url = request.url;
+        if (!url) {
+            sendResponse({ success: false, error: "Missing url" });
+            return;
+        }
+        chrome.tabs.create({ url }, () => {
+            const err = chrome.runtime.lastError;
+            if (err) {
+                sendResponse({ success: false, error: err.message });
+            } else {
+                sendResponse({ success: true });
+            }
+        });
+        return true;
+    }
+
+    if (request.action === "close_tab") {
+        const tabId = sender.tab ? sender.tab.id : null;
+        if (!tabId) {
+            sendResponse({ success: false, error: "Missing tab id" });
+            return;
+        }
+        chrome.tabs.get(tabId, (tab) => {
+            const getErr = chrome.runtime.lastError;
+            if (getErr || !tab) {
+                sendResponse({ success: false, error: getErr ? getErr.message : "Tab not found" });
+                return;
+            }
+            const url = tab.url || "";
+            const isChatTab = url.includes("/web/geek/chat") || url.includes("/chat");
+            if (!isChatTab) {
+                sendResponse({ success: false, error: "not_chat" });
+                return;
+            }
+            chrome.tabs.query({ windowId: tab.windowId }, (tabs) => {
+                const lastTab = !tabs || tabs.length <= 1;
+                if (lastTab) {
+                    sendResponse({ success: false, error: "last_tab" });
+                    return;
+                }
+                chrome.tabs.remove(tabId, () => {
+                    const err = chrome.runtime.lastError;
+                    if (err) {
+                        sendResponse({ success: false, error: err.message });
+                    } else {
+                        sendResponse({ success: true });
+                    }
+                });
+            });
+        });
+        return true;
+    }
+
     // === 生成配置接口 ===
     if (request.action === "generate_config") {
         const { resume } = request;
@@ -736,6 +850,21 @@ function constructAnalyzeUserPrompt(resume, jobText, hrName, bossTitle) {
 `.trim();
 }
 
+// === 辅助函数：构建打招呼 Prompt ===
+function constructGreetingUserPrompt(resume, jobText, hrName, bossTitle) {
+    return `
+【求职者简历】：
+"""${resume || "（未提供简历，请基于通用背景生成）"}"""
+
+【目标职位】：
+招聘者：${hrName} (${bossTitle})
+职位详情：
+"""${jobText}"""
+
+请生成 1 段简洁自然的打招呼话术（1-3 句），只输出文本，不要 JSON，不要解释。
+`.trim();
+}
+
 // === 处理直连调用 ===
 async function handleDirectCall(apiKey, systemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId) {
     // 准备 System Prompt
@@ -872,6 +1001,124 @@ async function handleServerlessCall(clientId, systemPrompt, resume, jobText, hrN
     }
 }
 
+// === 处理直连打招呼调用 ===
+async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId) {
+    const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt);
+    const userPrompt = constructGreetingUserPrompt(resume, jobText, hrName, bossTitle);
+
+    const payload = {
+        model: "deepseek-chat",
+        messages: [
+            { role: "system", content: sysPrompt },
+            { role: "user", content: userPrompt }
+        ],
+        temperature: 1.1
+    };
+
+    const controller = new AbortController();
+    if (tabId) {
+        activeRequests.set(tabId, controller);
+    }
+
+    try {
+        const response = await fetchWithRetry("https://api.deepseek.com/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+            throw new Error(`DeepSeek API Error: ${result.error.message}`);
+        }
+
+        let content = result.choices[0].message.content || "";
+        content = content.replace(/```/g, '').trim();
+        sendResponse({ success: true, data: content });
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log("🛑 Greeting Request Aborted by User (Direct Mode)");
+            sendResponse({ success: false, error: "用户已取消" });
+        } else {
+            console.error("DeepSeek Greeting Call Failed:", error);
+            sendResponse({ success: false, error: error.message });
+        }
+    } finally {
+        if (tabId && activeRequests.has(tabId)) {
+            activeRequests.delete(tabId);
+        }
+    }
+}
+
+// === 处理 Serverless 打招呼调用 ===
+async function handleServerlessGreetingCall(clientId, chatSystemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId, userKey) {
+    const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt);
+
+    if (!SERVERLESS_URL || SERVERLESS_URL.includes("service-xxxx")) {
+        console.warn("⚠️ Serverless URL 未配置");
+        sendResponse({ success: false, error: "Serverless URL 未配置，请修改 background.js 并刷新插件" });
+        return;
+    }
+
+    const controller = new AbortController();
+    if (tabId) {
+        activeRequests.set(tabId, controller);
+    }
+
+    try {
+        const maskedResume = maskPII(resume);
+        const userPrompt = constructGreetingUserPrompt(maskedResume, jobText, hrName, bossTitle);
+
+        const response = await fetchWithRetry(SERVERLESS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "generate_greeting",
+                clientId,
+                sysPrompt,
+                userPrompt,
+                key: userKey
+            }),
+            signal: controller.signal
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || "Serverless Error");
+        }
+
+        chrome.storage.local.get(['energyCount'], (res) => {
+            const current = res.energyCount || 0;
+            chrome.storage.local.set({ energyCount: Math.max(0, current - 1) });
+        });
+
+        sendResponse({ success: true, data: result.data });
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            console.log("🛑 Greeting Request Aborted by User");
+            sendResponse({ success: false, error: "用户已取消" });
+        } else {
+            console.error("❌ Serverless Greeting Call Failed:", e);
+            const errorMsg = e.message || "未知错误";
+            if (/Free limit/i.test(errorMsg) || /Invalid Key/i.test(errorMsg) || /Rate limit/i.test(errorMsg)) {
+                sendResponse({ success: false, error: errorMsg });
+            } else {
+                sendResponse({ success: false, error: "后端连接失败: " + errorMsg });
+            }
+        }
+    } finally {
+        if (tabId && activeRequests.has(tabId)) {
+            activeRequests.delete(tabId);
+        }
+    }
+}
+
 // === 辅助函数：准备 Prompt ===
 function prepareSystemPrompt(userSystemPrompt) {
     // 如果用户自定义了 Prompt，用用户的；否则用默认的。
@@ -887,4 +1134,8 @@ function prepareSystemPrompt(userSystemPrompt) {
     }
     
     return sysPrompt;
+}
+
+function prepareChatSystemPrompt(chatSystemPrompt) {
+    return chatSystemPrompt || DEFAULT_CHAT_SYSTEM_PROMPT;
 }

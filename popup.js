@@ -1,5 +1,49 @@
 // popup.js - 终极修复版 (前端交互与错误处理)
 
+// 预设 DeepSeek API Key
+const DEFAULT_API_KEY = 'sk-92c0ecec04be4940b50a6123ed34e7ac';
+
+// 预设简历模板（林承列）
+const DEFAULT_RESUME = `个人简历
+
+基本信息
+*   姓名：林承列
+*   年龄：21岁
+*   电话号码：15396631779
+*   联系邮箱：15396631779@163.com
+
+教育背景
+2023.9-2027.06        天津师范大学        经济学
+
+精通A/B测试全流程：掌握假设提出、指标定义、样本量估算、流量分割及效果复盘的方法论。能识别和规避辛普森悖论等常见统计陷阱。能够通过数据分析发现增长点，将业务问题转化为可执行的A/B测试。
+
+实习经历
+
+2025.08-至今        一起科技教育有限公司        AI PM 实习生
+1.  个性化习题讲解视频的AI语音克隆：通过对Minimax等多种方案进行成本效益的量化评估，确立了以 Whisper+LLM+Minimax 为核心的技术栈。在测试中，针对音画不同步、音色失真等问题，使用 claude 辅助研发动态调节语速等方案。
+2.  AI个性化学情报告agent搭建：为解决三方模型TPM限流及输出不稳定的瓶颈，核心LLM从Claude到国产Qwen/Doubao的迁移选型，通过API调用测试，量化对比了各模型的生成效果与调用成本，最终以更优成本保障了10万份学情报告的稳定交付。
+3.  AI视觉批改产品迭代：通过对466例复杂样本进行量化评估（精确率79.4%），精准定位了低召回率（74.8%）为核心瓶颈。随即设计并推动了包含Prompt优化、协同教研侧规范录题流程的一揽子解决方案，有效提升了模型在复杂场景下的识别成功率。
+4.  看板搭建：主导搭建了DataEase 数据看板，协同数据与业务方，澄清并统一了续报率、续报率等核心指标的业务口径与计算逻辑。独立完成了两个核心业务看板的配置，为业务决策提供了实时的数据支持。
+
+2024.12-2025.03        Zhao-index赵指数基金公司        数据分析实习生
+1.  量化策略自动化监控体系搭建：为解决策略评估滞后、风险敞口不明的业务痛点，主导搭建了从数据处理到看板呈现的端到端监控体系。通过开发Python自动化脚本将数据准备效率提升50%。
+2.  搭建监控看板：基于处理后的数据，构建了包含关键风险与收益指标（如夏普比率）的监控体系。
+
+项目经历
+
+2025.03-2025.05        第十一届全国大学生统计建模大赛        天津赛区三等奖
+1.  增长洞察：为提升共享充电宝的使用频次与用户留存，主导了数据驱动的选址优化项目。通过Python 爬取并分析超1000条用户反馈，精准定位了"高峰期网点供不应求"是导致用户流失的关键环节。
+2.  方案设计：利用高德地图API获取全市充电宝POI数据，结合用户需求热力图，通过机器学习模型（LSTM,随机森林,CNN）量化预测了20个最优投放点位，旨在提升网点的订单转化率和用户满意度。
+
+2024.08-2024.12        "优益C杯"第三届蒙牛校园营销创新大赛        全国TOP20
+1.  用户增长策略：针对年轻用户新增乏力、留存低的痛点，主导设计了一套蒙牛益生菌音频覆盖拉新、促活、留存的全链路用户增长方案。
+2.  策划UGC价值共创活动，激励用户分享内容，提升用户活跃度与参与感，扩大新用户触达，提出引入AI聊天助手的概念，通过高频互动与情感陪伴，增强用户粘性，提升长期留存。通过追踪活动前后用户购买频率、社媒讨论量等指标，量化评估各运营策略对增长的实际贡献。
+
+技能与技术
+*   AI：AIGC技术落地, agent 搭建, Prompt工程, 机器学习, rag技术, API调用。
+*   PM：用户洞察, 需求分析, 数据分析, 用户增长策略, A/B测试, 全流程项目管理, 跨团队协作, 产品方案设计。
+*   SQL：掌握窗口函数、多表连接查询、聚合函数等，熟悉 MySQL数据库查询与管理。`;
+
 document.addEventListener('DOMContentLoaded', () => {
     // 加载已保存的数据
     loadSettings();
@@ -299,8 +343,15 @@ function saveSettings() {
         return val;
     };
 
+    // 获取 API Key，如果为空则使用预设值
+    let apiKeyValue = document.getElementById('apiKey').value;
+    if (!apiKeyValue || apiKeyValue.trim() === '') {
+        apiKeyValue = DEFAULT_API_KEY;
+        document.getElementById('apiKey').value = DEFAULT_API_KEY;
+    }
+
     const settings = {
-        apiKey: document.getElementById('apiKey').value,
+        apiKey: apiKeyValue,
         resume: document.getElementById('resume').value,
         // autoSubmit: document.getElementById('autoSubmit').checked, // Removed
         filterActiveHr: document.getElementById('filterActiveHr').checked,
@@ -325,10 +376,23 @@ function loadSettings() {
     chrome.storage.local.get(
         ['apiKey', 'resume', 'filterActiveHr', 'enableLabMode', 'computeMode', 'energyCount', 'filterKeywords', 'filterTitleKeywords', 'filterContentKeywords', 'systemPrompt', 'chatSystemPrompt', 'keywordArsenal', 'scanPauseSeconds', 'autoPauseThreshold', 'historyRetentionDays', 'maxHistoryRecords'], 
         (res) => {
-            if (res.apiKey) document.getElementById('apiKey').value = res.apiKey;
+            // API Key：如果没有，使用预设值
+            if (res.apiKey) {
+                document.getElementById('apiKey').value = res.apiKey;
+            } else {
+                document.getElementById('apiKey').value = DEFAULT_API_KEY;
+                chrome.storage.local.set({ apiKey: DEFAULT_API_KEY });
+            }
+
             if (res.resume) {
                 document.getElementById('resume').value = res.resume;
                 document.getElementById('resumeCharCount').innerText = res.resume.length;
+            } else {
+                // 如果没有简历，使用预设简历（林承列）
+                document.getElementById('resume').value = DEFAULT_RESUME;
+                document.getElementById('resumeCharCount').innerText = DEFAULT_RESUME.length;
+                // 自动保存到 storage
+                chrome.storage.local.set({ resume: DEFAULT_RESUME });
             }
             // if (res.autoSubmit !== undefined) document.getElementById('autoSubmit').checked = res.autoSubmit; // Removed
             if (res.filterActiveHr !== undefined) document.getElementById('filterActiveHr').checked = res.filterActiveHr;

@@ -39,6 +39,14 @@ This is a Manifest V3 Chrome extension with the following main components:
    - Extract hidden salary and job data
    - Monitor SPA navigation changes
 
+### Message Passing Architecture
+Communication between contexts follows Chrome extension messaging patterns:
+- **popup.js → background.js**: Settings save/load, energy redemption, AI config generation
+- **popup.js → content.js**: Direct job analysis trigger via `chrome.tabs.sendMessage`
+- **content.js → background.js**: API calls, storage operations
+- **content.js → injected scripts**: Data extraction requests via window events
+- **injected scripts → content.js**: Callbacks through custom event system
+
 ## Key Features & Implementation
 
 ### 1. Job Analysis System
@@ -85,14 +93,33 @@ This is a Manifest V3 Chrome extension with the following main components:
 - Real-time settings synchronization
 - Feature flags for experimental capabilities
 
+## Development & Installation
+
+### Loading the Extension
+1. Navigate to `chrome://extensions/`
+2. Enable "Developer mode" (top right toggle)
+3. Click "Load unpacked"
+4. Select the repository root directory (containing `manifest.json`)
+
+### Chrome Extension Architecture
+- **Manifest V3**: Uses modern service worker instead of background pages
+- **Content Security Policy**: Restricted to specific domains (zhipin.com, deepseek.com)
+- **Permissions**: Requires `storage`, `scripting`, `tabs`, `activeTab`, `notifications`
+
 ## Important Considerations
 
 ### Security Analysis
 This extension uses web scraping and data extraction techniques that may be considered aggressive:
 - Hook techniques for data extraction
-- Network request interception in "lab mode"
+- Network request interception in "lab mode" (`enableLabMode` flag)
 - Potential violation of website terms of service
 - Risk of account suspension for users
+
+### Lab Mode (`enableLabMode`)
+When enabled in popup.js:51-59, shows user warning about:
+- Network request interception risks
+- Potential account suspension
+- Requires explicit confirmation before enabling
 
 ### Code Quality Notes
 - Large monolithic files (content.js > 6,000 lines)

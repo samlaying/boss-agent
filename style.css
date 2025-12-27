@@ -527,3 +527,10 @@ summary {
     color: #2e7d32;
     border-color: #a5d6a7;
 }
+
+/* 只读简历输入框样式 */
+#resume[readonly] {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    color: #555;
+}

@@ -10,6 +10,10 @@ console.log("🚀 [BossHelper] Content Script Loaded v" + chrome.runtime.getMani
 let isScanning = false;
 let currentJobIndex = -1;
 let jobCards = [];
+let isAutoApplying = false;
+let autoApplyIndex = -1;
+let autoApplyCards = [];
+let autoApplyController = null;
 
 // 全局变量：隐形数据缓存
 let rawSalaryData = null;
@@ -692,6 +696,10 @@ function initWrapper() {
               <button id="btn-analyze" style="flex:1; padding:8px; background:linear-gradient(135deg, #4fc3f7, #0288d1); color:#fff; border:none; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 4px 10px rgba(2,136,209,0.3); transition:transform 0.1s;">⚡ 深度剖析</button>
               <button id="btn-scan" style="flex:1; padding:8px; background:#fff; color:#e65100; border:1px solid #ffe0b2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">批量巡检(慎用)</button>
               <button id="btn-capture" style="flex:1; padding:8px; background:#fff; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">📷 截图报告</button>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:8px;">
+              <button id="btn-auto-loop" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🔁 自动沟通循环</button>
+              <button id="btn-stop-auto-loop" style="flex:1; padding:8px; background:#fff; color:#e53935; border:1px solid #ffcdd2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🛑 停止自动循环</button>
           </div>
           <div style="text-align:right; margin-top:10px; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
               <button id="btn-auto-apply" style="display:none; padding:6px 12px; border:none; color:#fff; background:linear-gradient(90deg, #00bebd, #00a0a0); border-radius:20px; font-size:12px; cursor:pointer; font-weight:700;">⚡ 一键招呼</button>
@@ -2521,8 +2529,39 @@ async function doAnalyze(data, signal = null, forceRefresh = false) {
     }
 }
 
+// === 生成打招呼话术 (不做匹配分析) ===
+async function generateGreetingFromJob(data, signal = null) {
+    if (signal && signal.aborted) throw new Error("Aborted");
+
+    const res = await chrome.runtime.sendMessage({
+        action: "generate_greeting",
+        jobText: `${data.text.substring(0, 2900)}\n【薪资信息】：${data.salary || "面议"}`,
+        hrName: data.hr,
+        bossTitle: data.hrTitle
+    });
+
+    if (signal && signal.aborted) throw new Error("Aborted");
+
+    if (res && res.success && res.data) {
+        return String(res.data).trim();
+    }
+
+    const msg = (res && res.error) ? res.error : "未知错误";
+    if (msg === "ENERGY_EXHAUSTED" || msg.includes("Free limit") || msg.includes("Please redeem") || msg.includes("Invalid Key") || msg.includes("Rate limit")) {
+        renderEnergyExhaustedCard();
+        showToast("⚡ 能量耗尽", 3000);
+    } else {
+        showToast("生成话术失败: " + msg, 3000);
+    }
+    return "";
+}
+
 // === 场景 B：批量扫描 ===
 function toggleScan() {
+    if (isAutoApplying) {
+        alert("请先停止自动沟通循环，再启动批量巡检");
+        return;
+    }
     isScanning = !isScanning;
     const btn = document.getElementById('btn-scan');
     const statusTag = document.getElementById('scan-status-tag');
@@ -2890,6 +2929,325 @@ async function scanNext() {
 
     await new Promise(r => setTimeout(r, totalDelay));
     scanNext();
+}
+
+// === 场景 C：自动沟通循环 ===
+function stopAutoApplyLoop() {
+    isAutoApplying = false;
+    if (autoApplyController) {
+        autoApplyController.abort();
+        autoApplyController = null;
+    }
+    const btn = document.getElementById('btn-auto-loop');
+    if (btn) {
+        btn.innerText = "🔁 自动沟通循环";
+        btn.style.borderColor = "#00a0a0";
+        btn.style.color = "#00796b";
+        btn.disabled = false;
+    }
+    const statusTag = document.getElementById('scan-status-tag');
+    if (statusTag) {
+        statusTag.innerText = "Standby";
+        statusTag.style.display = "none";
+    }
+}
+
+function toggleAutoApplyLoop() {
+    if (isScanning) {
+        alert("请先停止批量巡检，再启动自动沟通循环");
+        return;
+    }
+    if (isAutoApplying) {
+        stopAutoApplyLoop();
+        return;
+    }
+    isAutoApplying = true;
+    autoApplyController = new AbortController();
+    autoApplyCards = Array.from(document.querySelectorAll('.job-card-wrapper, .job-card-box'));
+    if (autoApplyCards.length === 0) {
+        alert("列表为空");
+        stopAutoApplyLoop();
+        return;
+    }
+
+    const btn = document.getElementById('btn-auto-loop');
+    if (btn) {
+        btn.innerText = "🛑 停止自动沟通";
+        btn.style.borderColor = "#e53935";
+        btn.style.color = "#e53935";
+    }
+    const statusTag = document.getElementById('scan-status-tag');
+    if (statusTag) {
+        statusTag.style.display = "inline-block";
+        statusTag.innerText = "Auto Apply";
+    }
+
+    autoApplyIndex = -1;
+    autoApplyNext();
+}
+
+function getPreJobIdFromCard(card) {
+    let link = card.querySelector('.job-card-left');
+    if (!link) {
+        const as = card.querySelectorAll('a');
+        for (const a of as) {
+            if (a.href && a.href.includes('job_detail')) {
+                link = a;
+                break;
+            }
+        }
+    }
+    return link ? getJobId(link.href) : null;
+}
+
+function getDetailLinkFromCard(card) {
+    let link = card.querySelector('.job-card-left');
+    if (!link) {
+        const as = card.querySelectorAll('a');
+        for (const a of as) {
+            if (a.href && a.href.includes('job_detail')) {
+                link = a;
+                break;
+            }
+        }
+    }
+    return link ? link.href : null;
+}
+
+async function shouldSkipByFilters(data) {
+    let shouldFilter = true;
+    let filterTitleKeywords = "";
+    let filterContentKeywords = "";
+    try {
+        const config = await new Promise(r => chrome.storage.local.get(['filterActiveHr', 'filterKeywords', 'filterTitleKeywords', 'filterContentKeywords'], r));
+        shouldFilter = config.filterActiveHr !== false;
+        filterTitleKeywords = config.filterTitleKeywords || config.filterKeywords || "";
+        filterContentKeywords = config.filterContentKeywords || "";
+    } catch (e) {}
+
+    if (shouldFilter && isInactiveHR(data.active)) {
+        const reason = data.active ? `💤 不活跃(${data.active})` : `💤 状态未知`;
+        return { skip: true, reason };
+    }
+
+    if (filterTitleKeywords) {
+        const keywords = filterTitleKeywords.split('\n').filter(k => k.trim());
+        const titleText = (data.detailTitle + " " + data.company).toLowerCase();
+        const hitKw = keywords.find(k => titleText.includes(k.toLowerCase().trim()));
+        if (hitKw) return { skip: true, reason: `🚫 标题: ${hitKw}` };
+    }
+
+    if (filterContentKeywords) {
+        const keywords = filterContentKeywords.split('\n').filter(k => k.trim());
+        const contentText = (data.text || "").toLowerCase();
+        const hitKw = keywords.find(k => contentText.includes(k.toLowerCase().trim()));
+        if (hitKw) return { skip: true, reason: `🚫 内容: ${hitKw}` };
+    }
+
+    return { skip: false, reason: "" };
+}
+
+function closeChatDialog() {
+    const selectors = [
+        '.dialog-close',
+        '.chat-close',
+        '.btn-close',
+        '.icon-close',
+        '.close',
+        '.dialog-header .close',
+        '.chat-header .close',
+        'button[aria-label="关闭"]',
+        'span[aria-label="关闭"]',
+        'i[aria-label="关闭"]'
+    ];
+    const candidates = Array.from(document.querySelectorAll(selectors.join(',')));
+    for (const el of candidates) {
+        if (el && el.offsetParent !== null) {
+            el.click();
+            return true;
+        }
+    }
+
+    const textCandidates = Array.from(document.querySelectorAll('button, a, span, i, div[role="button"]'));
+    for (const el of textCandidates) {
+        if (!el || el.offsetParent === null) continue;
+        const text = (el.innerText || "").trim();
+        if (text === "关闭" || text === "返回" || text === "收起" || text === "退出") {
+            el.click();
+            return true;
+        }
+    }
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+    return false;
+}
+
+function hasJobList() {
+    return !!document.querySelector('.job-card-wrapper, .job-card-box');
+}
+
+async function tryReturnToList() {
+    if (hasJobList()) return true;
+
+    closeChatDialog();
+    await new Promise(r => setTimeout(r, 800));
+    if (hasJobList()) return true;
+
+    const url = window.location.href;
+    if (url.includes('/web/geek/chat') || url.includes('/chat')) {
+        history.back();
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    return hasJobList();
+}
+
+async function withTimeout(promise, ms, label) {
+    let timer;
+    try {
+        const timeoutPromise = new Promise((_, reject) => {
+            timer = setTimeout(() => {
+                const err = new Error(`Timeout: ${label || 'operation'}`);
+                err.code = 'TIMEOUT';
+                reject(err);
+            }, ms);
+        });
+        const value = await Promise.race([promise, timeoutPromise]);
+        return { ok: true, value };
+    } catch (error) {
+        return { ok: false, error };
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+async function autoApplyNext() {
+    if (!isAutoApplying) return;
+    if (autoApplyController && autoApplyController.signal.aborted) return;
+
+    autoApplyIndex++;
+
+    if (autoApplyIndex >= autoApplyCards.length) {
+        console.log("📄 自动沟通：本页结束，尝试滚动加载...");
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        await new Promise(r => setTimeout(r, 2200));
+        const newCards = Array.from(document.querySelectorAll('.job-card-wrapper, .job-card-box'));
+        if (newCards.length > autoApplyCards.length) {
+            console.log(`✅ 自动沟通：加载新数据 ${autoApplyCards.length} -> ${newCards.length}`);
+            autoApplyCards = newCards;
+            autoApplyIndex--;
+            return autoApplyNext();
+        }
+        console.log("⚠️ 自动沟通：无更多岗位，停止");
+        stopAutoApplyLoop();
+        return;
+    }
+
+    const card = autoApplyCards[autoApplyIndex];
+    if (!card || !card.isConnected) return autoApplyNext();
+    if (card.dataset.autoApplied === "true") return autoApplyNext();
+
+    const targetTitle = card.querySelector('.job-name')?.innerText?.split('\n')[0] || "职位";
+    const targetCompany = card.querySelector('.company-name')?.innerText?.trim() || "";
+    const preJobId = getPreJobIdFromCard(card);
+    const detailUrl = getDetailLinkFromCard(card);
+
+    if (preJobId) {
+        const history = HistoryManager.get(preJobId);
+        if (history && (history.st === 2 || history.st === 3)) {
+            card.classList.add('boss-inactive');
+            card.setAttribute('data-reason', history.st === 2 ? '✅ 已沟通' : '🚫 已忽略');
+            card.style.opacity = "0.5";
+            await new Promise(r => setTimeout(r, 1200));
+            return autoApplyNext();
+        }
+    }
+
+    if (!HistoryManager.checkDailyLimit()) {
+        console.log("🛑 [BossAutoApply] 达到每日限制，停止自动沟通");
+        stopAutoApplyLoop();
+        return;
+    }
+    HistoryManager.incrementDailyCount();
+
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.click();
+    updateRadarUI(targetTitle, "加载中...", "...", "");
+
+    autoApplyCards.forEach(c => c.classList.remove('boss-scanning'));
+    card.classList.add('boss-scanning');
+
+    const newData = await waitForSync(targetTitle, targetCompany);
+    updateRadarUI(newData.detailTitle, newData.company, newData.hr, newData.active, newData.hrTitle);
+
+    const filterRes = await shouldSkipByFilters(newData);
+    if (filterRes.skip) {
+        card.classList.remove('boss-scanning');
+        card.classList.add('boss-inactive');
+        card.setAttribute('data-reason', filterRes.reason);
+        card.style.opacity = "0.5";
+        await new Promise(r => setTimeout(r, 1500));
+        return autoApplyNext();
+    }
+
+    let currentJobId = getJobId(window.location.href);
+    if (!currentJobId && preJobId) currentJobId = preJobId;
+    if (currentJobId) {
+        const h = HistoryManager.get(currentJobId);
+        if (h && (h.st === 2 || h.st === 3)) {
+            card.classList.remove('boss-scanning');
+            card.classList.add('boss-inactive');
+            card.setAttribute('data-reason', h.st === 2 ? '✅ 已沟通' : '🚫 已忽略');
+            await new Promise(r => setTimeout(r, 1200));
+            return autoApplyNext();
+        }
+    }
+
+    let greetingText = "";
+    try {
+        greetingText = await generateGreetingFromJob(newData, autoApplyController.signal);
+    } catch (e) {
+        if (!isAutoApplying || (e && e.message === "Aborted")) {
+            return;
+        }
+        console.error("❌ [BossAutoApply] 话术生成失败:", e);
+    }
+
+    if (!greetingText) {
+        greetingText = "您好，我对该岗位很感兴趣，期待进一步沟通。";
+    }
+
+    const sendResult = await withTimeout(
+        autoGreet(greetingText),
+        12000,
+        "auto_greet"
+    );
+    if (!sendResult.ok) {
+        console.warn("⏱️ [BossAutoApply] 发送超时，跳过该岗位");
+        if (currentJobId) {
+            HistoryManager.add(currentJobId, 3, 0, "发送超时");
+        }
+        card.setAttribute('data-reason', '⏱️ 发送超时');
+    } else if (sendResult.value && currentJobId) {
+        HistoryManager.markGreeted(currentJobId);
+    } else {
+        if (currentJobId) {
+            HistoryManager.add(currentJobId, 3, 0, "发送失败");
+        }
+        card.setAttribute('data-reason', '⚠️ 发送失败');
+    }
+
+    await new Promise(r => setTimeout(r, 800));
+    await tryReturnToList();
+
+    card.classList.remove('boss-scanning');
+    card.dataset.autoApplied = "true";
+    card.classList.add('boss-inactive');
+    card.style.opacity = "0.5";
+
+    const delay = 8000 + Math.random() * 7000;
+    await new Promise(r => setTimeout(r, delay));
+    autoApplyNext();
 }
 
 // 辅助函数：判断 HR 是否不活跃
@@ -4839,8 +5197,17 @@ const HistoryManager = {
         }
     },
 
+    safeStorageSet(payload) {
+        if (!chrome.runtime || !chrome.runtime.id) return;
+        try {
+            chrome.storage.local.set(payload);
+        } catch (e) {
+            console.warn("⚠️ [History] storage.set failed:", e.message || e);
+        }
+    },
+
     saveDailyData() {
-        chrome.storage.local.set({
+        this.safeStorageSet({
             dailyScanData: {
                 date: this.lastScanDate,
                 count: this.dailyCount
@@ -4868,7 +5235,7 @@ const HistoryManager = {
     save() {
         // 转换为对象存储
         const obj = Object.fromEntries(this.cache);
-        chrome.storage.local.set({ 'jobHistory': obj });
+        this.safeStorageSet({ 'jobHistory': obj });
     },
 
     cleanExpired() {
@@ -5120,6 +5487,23 @@ function bindEvents() {
         if (confirm("⚠️ 【高风险操作警告】\n\n批量巡检功能会模拟人类行为连续浏览职位。\n\n尽管我们已加入随机延迟，但高频操作仍可能触发平台风控（包括但不限于：验证码拦截、账号临时限制、封号）。\n\n建议：\n1. 仅在必要时使用\n2. 每日控制扫描数量\n3. 配合“不活跃HR过滤”使用\n\n是否继续？")) {
             toggleScan();
         }
+    });
+    safeBind('btn-auto-loop', function() {
+        if (isAutoApplying) {
+            toggleAutoApplyLoop();
+            return;
+        }
+        if (confirm("⚠️ 【自动沟通循环提醒】\n\n该功能会自动滚动、分析并发送招呼语。\n\n请确保：\n1. 已登录 Boss 直聘\n2. 当前在职位列表页\n3. 已理解可能触发平台风控\n\n是否继续？")) {
+            toggleAutoApplyLoop();
+        }
+    });
+    safeBind('btn-stop-auto-loop', function() {
+        if (!isAutoApplying) {
+            showToast("当前未在自动沟通循环中");
+            return;
+        }
+        stopAutoApplyLoop();
+        showToast("已停止自动沟通循环");
     });
 
     safeBind('btn-ignore', markAsIgnore);
@@ -5637,6 +6021,7 @@ async function autoGreet(greetingText) {
     }
 
     try {
+        let sendSuccess = false;
         // 优先使用传入的话术，否则尝试读取输入框
         let greeting = greetingText;
         if (!greeting) {
@@ -5650,7 +6035,7 @@ async function autoGreet(greetingText) {
                 btn.innerText = "💬 一键开聊";
                 btn.disabled = false;
             }
-            return;
+            return false;
         }
 
         // 0. 先保存话术到本地存储
@@ -5700,34 +6085,17 @@ async function autoGreet(greetingText) {
                 btn.innerText = "💬 一键开聊";
                 btn.disabled = false;
             }
-            return;
+            return false;
         }
 
         console.log("👆 [BossDebug] 点击立即沟通按钮:", validBtn);
-        
-        // 尝试多种点击方式，确保触发
+        // 尝试多种点击方式，确保触发 (旧版/无链接按钮)
         try {
             validBtn.click();
         } catch(e) { console.error("Standard click failed", e); }
-        
-        // 模拟原生点击事件 (穿透 React/Vue 事件绑定)
         const eventOptions = { bubbles: true, cancelable: true, view: window };
         validBtn.dispatchEvent(new MouseEvent('mousedown', eventOptions));
         validBtn.dispatchEvent(new MouseEvent('mouseup', eventOptions));
-
-        // 增强：如果是链接且没反应，尝试强制跳转
-        if (validBtn.tagName === 'A' && validBtn.href && validBtn.href.startsWith('http')) {
-             console.log("🔗 [BossDebug] 检测到按钮是链接，尝试自动跳转:", validBtn.href);
-             // 延时一下，如果 click 没触发跳转，则手动跳
-             setTimeout(() => {
-                 // 判断页面是否还在当前URL (简单判断)
-                 // 注意：有些 SPA 跳转 URL 变了但页面没刷新，这里只能尽力而为
-                 if (window.location.href.includes(currentJobId)) { 
-                      console.log("🚀 [BossDebug] 模拟点击无效，执行强制跳转");
-                      window.location.href = validBtn.href; 
-                 }
-             }, 800);
-        }
 
         showToast("正在打开沟通窗口...", 2000);
 
@@ -5750,7 +6118,7 @@ async function autoGreet(greetingText) {
             setTimeout(() => {
                 if(btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
             }, 3000);
-            return;
+            return false;
         }
 
         // 3. 填入话术 (弹窗模式)
@@ -5772,12 +6140,17 @@ async function autoGreet(greetingText) {
         // 4. 自动发送
         await new Promise(r => setTimeout(r, 800));
         
-        const sendBtn = document.querySelector('.btn-send, .submit-btn, .btn-sure, button[type="submit"], .dialog-footer .btn-sure');
+        const sendBtn = document.querySelector('.send-message, .btn-send, .submit-btn, .btn-sure, button[type="submit"], .dialog-footer .btn-sure');
         if (sendBtn && (sendBtn.innerText.includes('发送') || sendBtn.innerText.includes('确'))) {
+            if (sendBtn.classList.contains('disable')) {
+                sendBtn.classList.remove('disable');
+                sendBtn.classList.remove('disabled');
+            }
             sendBtn.click();
             console.log("🚀 [BossDebug] 话术已自动提交");
             showToast("✅ 已发送");
             if (btn) btn.innerText = "✅ 已发送";
+            sendSuccess = true;
             
             // 标记为已投递
             const currentJobId = getJobId(window.location.href);
@@ -5797,14 +6170,35 @@ async function autoGreet(greetingText) {
             if(btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
         }, 3000);
 
+        return sendSuccess;
     } catch (e) {
         console.error("❌ [BossDebug] Auto Greet Error:", e);
         showToast("自动操作异常，请手动粘贴");
         if(btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
+        return false;
     }
 }
 
 // 检查是否有待发送的话术（跨页面/刷新）
+function tryOpenChatPanel() {
+    const selectors = [
+        '.btn-startchat',
+        '.btn-container .btn-sure',
+        '.op-btn-chat',
+        '.btn-greet',
+        '.group-chat-btn',
+        '.boss-chat-btn',
+        '.btn-start-chat'
+    ];
+    const btns = Array.from(document.querySelectorAll(selectors.join(',')));
+    const btn = btns.find(b => b.offsetParent !== null && (b.innerText.includes('沟通') || b.innerText.includes('打招呼')));
+    if (btn) {
+        btn.click();
+        return true;
+    }
+    return false;
+}
+
 async function checkPendingGreeting() {
     try {
         const data = await new Promise(r => chrome.storage.local.get(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId'], r));
@@ -5822,6 +6216,9 @@ async function checkPendingGreeting() {
         console.log("🔍 [BossDebug] 正在寻找聊天输入框...");
         showToast("正在恢复之前的沟通话术...", 3000);
 
+        // 尝试先打开聊天面板（新开详情页时需要）
+        tryOpenChatPanel();
+
         // 寻找输入框 (给予更长时间，因为新页面加载慢)
         let chatInput = null;
         let retries = 0;
@@ -5836,7 +6233,9 @@ async function checkPendingGreeting() {
                 'div[contenteditable="true"], ' +
                 '.chat-message-input'
             );
-            
+            if (!chatInput && retries === 20) {
+                tryOpenChatPanel();
+            }
             if (chatInput && chatInput.offsetParent !== null) {
                 console.log("✅ [BossDebug] 找到输入框:", chatInput);
                 break;
@@ -5869,10 +6268,42 @@ async function checkPendingGreeting() {
 
             await new Promise(r => setTimeout(r, 1000));
             
-            // 尝试发送
-            const sendBtn = document.querySelector('.btn-send, .submit-btn, .btn-sure, button[type="submit"], .dialog-footer .btn-sure, .chat-op .btn-send, .chat-message-send');
-            if (sendBtn && (sendBtn.innerText.includes('发送') || sendBtn.innerText.includes('确'))) {
+            // 尝试发送（增强：轮询 + 文案匹配 + 回车兜底）
+            const sendStart = Date.now();
+            let sendBtn = null;
+            while (Date.now() - sendStart < 5000) {
+                sendBtn = document.querySelector('.send-message, .btn-send, .submit-btn, .btn-sure, button[type="submit"], .dialog-footer .btn-sure, .chat-op .btn-send, .chat-message-send');
+                if (!sendBtn) {
+                    const candidates = Array.from(document.querySelectorAll('button, div[role="button"], span'));
+                    sendBtn = candidates.find(b => {
+                        if (!b || b.offsetParent === null) return false;
+                        const text = (b.innerText || "").trim();
+                        return text === "发送" || text === "立即沟通" || text === "继续沟通" || text === "确认";
+                    });
+                }
+                if (sendBtn && (sendBtn.innerText.includes('发送') || sendBtn.innerText.includes('确') || sendBtn.innerText.includes('沟通'))) {
+                    break;
+                }
+                sendBtn = null;
+                await new Promise(r => setTimeout(r, 300));
+            }
+
+            if (!sendBtn) {
+                // 回车兜底（部分页面只有回车发送）
+                if (chatInput && (chatInput.tagName === 'TEXTAREA' || chatInput.contentEditable === "true")) {
+                    chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                    chatInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                    await new Promise(r => setTimeout(r, 800));
+                }
+            } else {
+                if (sendBtn.classList.contains('disable')) {
+                    sendBtn.classList.remove('disable');
+                    sendBtn.classList.remove('disabled');
+                }
                 sendBtn.click();
+            }
+
+            if (sendBtn) {
                 console.log("🚀 [BossDebug] [自动恢复] 话术已提交");
                 showToast("✅ 已发送");
                 
@@ -5883,9 +6314,12 @@ async function checkPendingGreeting() {
                 }
 
                 chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId']);
+                closeChatDialog();
             } else {
-                console.log("⚠️ [BossDebug] [自动恢复] 未找到发送按钮");
-                showToast("⚠️ 请手动点击发送");
+                console.log("⚠️ [BossDebug] [自动恢复] 未找到发送按钮，自动跳过");
+                showToast("⚠️ 未找到发送按钮，已跳过");
+                chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId']);
+                closeChatDialog();
             }
         } else {
             console.log("❌ [BossDebug] 超时未找到输入框");
