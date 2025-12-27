@@ -636,7 +636,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
             const url = tab.url || "";
             const isChatTab = url.includes("/web/geek/chat") || url.includes("/chat");
-            if (!isChatTab) {
+            const isJobDetailTab = url.includes("/job_detail/");
+            if (!isChatTab && !isJobDetailTab) {
                 sendResponse({ success: false, error: "not_chat" });
                 return;
             }
