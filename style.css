@@ -1,9 +1,15 @@
 @charset "UTF-8";
 
-/* 
+/*
  * Boss直聘 职位分析助手 - 样式表
  * Design: Modern, Clean, Professional (Restored)
  */
+
+/* 强制重置：确保高度自适应，去除空白 */
+html {
+  height: auto !important;
+  min-height: auto !important;
+}
 
 :root {
   --primary-color: #00bebd;
@@ -58,8 +64,10 @@ body {
   color: var(--text-primary);
   font-size: var(--font-sm);
   overflow-x: hidden; /* 防止横向滚动条 */
-  min-height: auto; /* 确保高度自动适应内容 */
-  height: auto; /* 不设置固定高度 */
+  height: fit-content !important; /* 强制：高度随内容而定 */
+  min-height: auto !important;
+  max-height: 600px; /* 可选：防止内容太多时超出屏幕 */
+  overflow-y: auto; /* 内容过多时才滚动 */
 }
 
 /* 主容器 */
@@ -67,8 +75,9 @@ body {
   width: 360px;
   padding: var(--space-lg);
   box-sizing: border-box;
-  min-height: auto;
-  height: auto;
+  height: auto !important; /* 强制自适应 */
+  min-height: 0 !important; /* 移除最小高度限制 */
+  display: block !important; /* 确保不是flex布局导致撑开 */
 }
 
 /* 标题栏 */
@@ -539,4 +548,42 @@ summary {
     background-color: #f5f5f5;
     cursor: not-allowed;
     color: #555;
+}
+
+/* ========== 强制覆盖：去除空白区域 ========== */
+
+/* 1. 确保所有卡片容器不自动撑开高度 */
+.card {
+  flex: 0 0 auto !important; /* 禁止flex自动放大 */
+  height: auto !important;
+}
+
+/* 2. 确保底部按钮紧跟内容，不贴底部 */
+.footer-actions {
+  position: static !important;
+  margin-top: 16px !important;
+  padding-bottom: 16px;
+}
+
+/* 3. 针对可能的modal弹窗 */
+.modal-content {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* 4. 针对内容区域 */
+#aiConfigModal {
+  height: fit-content !important;
+}
+
+/* 5. 确保textarea不会撑得太高 */
+textarea {
+  max-height: 200px !important;
+  overflow-y: auto !important;
+}
+
+#resume {
+  max-height: 150px !important;
 }
