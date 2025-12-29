@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "微光·求职搭子",
   "description": "一款带夜视功能的职场翻译机。别怕黑，这里有光。把困难留给 AI，把尊严留给自己。",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "permissions": ["storage", "unlimitedStorage", "scripting", "tabs", "activeTab", "notifications"],
   "host_permissions": [
     "<all_urls>",
