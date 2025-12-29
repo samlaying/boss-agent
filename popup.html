@@ -21,9 +21,9 @@
         </div>
     </div>
 
-  <!-- 区域1：智能引导区 (小白用户主界面) -->
+  <!-- 配置卡片 (已隐藏) -->
   <!-- 卡片1：身份凭证 -->
-  <div class="card">
+  <div class="card" style="display: none;">
     <div class="card-title">🔑 身份凭证</div>
     <div class="input-group">
       <label>DeepSeek API Key</label>
@@ -35,7 +35,7 @@
   </div>
 
   <!-- 卡片2：简历画像 -->
-  <div class="card">
+  <div class="card" style="display: none;">
     <div class="card-title">
         📄 简历画像
     </div>
@@ -49,7 +49,7 @@
   <div id="aiConfigModal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
       <h4 class="modal-title">🤖 AI 正在为您规划...</h4>
-      
+
       <!-- 进度条 -->
       <div class="progress-container">
         <div class="step-item" id="step1">
@@ -85,7 +85,7 @@
   </div>
 
   <!-- 区域3：偏好设置 -->
-  <div class="card">
+  <div class="card" style="display: none;">
     <div class="card-title">⚙️ 偏好设置</div>
     <!-- 新增：HR活跃度过滤开关 -->
     <div class="switch-row">
@@ -97,7 +97,12 @@
     </div>
   </div>
 
-  <div class="footer-actions">
+  <!-- 提示信息 -->
+  <div style="text-align: center; padding: 20px; color: #90a4ae; font-size: 13px;">
+    <p style="margin: 0;">请在 Boss直聘 页面使用悬浮球进行职位扫描和对话</p>
+  </div>
+
+  <div class="footer-actions" style="display: none;">
     <button id="saveBtn" class="save-btn">💾 保存所有配置</button>
     <div id="status"></div>
   </div>
