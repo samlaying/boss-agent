@@ -210,8 +210,8 @@ function initBall() {
     if(document.getElementById('boss-copilot-ball')) return;
     const ball = document.createElement('div');
     ball.id = 'boss-copilot-ball';
-    ball.innerText = '🌌'; // 使用星系/微光图标
-    ball.title = '微光夜视';
+    ball.innerText = '🌌'; // 使用星系图标
+    ball.title = '微光';
     ball.style.cssText = `position:fixed;top:150px;right:0;width:40px;height:40px;background:#263238;color:#fff;border-radius:20px 0 0 20px;z-index:99999;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:-2px 2px 8px rgba(0,0,0,0.2);`;
     ball.onclick = () => {
         document.getElementById('boss-copilot-panel').style.display = 'flex';
@@ -568,7 +568,7 @@ function initWrapper() {
 
       <!-- 面板标题栏 -->
       <div class="panel-header" style="background:linear-gradient(135deg, var(--primary-color), var(--primary-dark)); padding:12px 15px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; justify-content:space-between; align-items:center; cursor:move; user-select:none; border-radius:12px 12px 0 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <span style="font-weight:800; color:#fff; font-size:14px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">✨ 微光·求职搭子</span>
+          <span style="font-weight:800; color:#fff; font-size:14px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">✨ 微光</span>
           <div class="panel-controls" style="display:flex; align-items:center; gap:8px;">
               <span id="scan-status-tag" style="background:rgba(255,255,255,0.2); color:#fff; font-size:10px; padding:2px 8px; border-radius:10px; backdrop-filter:blur(4px);">Standby</span>
               <button id="btn-reset" class="icon-btn" title="重置位置">↺</button>
@@ -578,18 +578,6 @@ function initWrapper() {
       </div>
       
       <div class="panel-body" style="padding:15px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:var(--bg-primary);">
-          
-          <!-- 晨曦寄语 (Daily Spark) -->
-          <div id="daily-spark-container" style="background:linear-gradient(to right, #fff1eb, #ace0f9); border-radius:8px; padding:10px 15px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.5); box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer; transition:all 0.3s ease; user-select:none;" title="点击切换每日寄语">
-              <div style="display:flex; align-items:flex-start; gap:10px;">
-                  <span style="font-size:16px; filter:grayscale(0.2);">🌿</span>
-                  <div style="flex:1;">
-                      <div id="daily-spark-text" style="font-family:-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size:13px; color:#37474f; line-height:1.6; font-weight:500; transition:opacity 0.2s ease;">
-                          加载治愈能量...
-                      </div>
-                  </div>
-              </div>
-          </div>
 
           <!-- 上部：雷达与身份 -->
           <div class="section-radar" style="background:#fff; padding:12px; border-radius:var(--radius-md); box-shadow:var(--shadow-sm); border:1px solid var(--border-light);">
@@ -650,7 +638,7 @@ function initWrapper() {
                      position: relative; 
                      z-index: 2; 
                  "> 
-                     “ 微光虽弱，但我们一直在。” 
+                     " 微光。" 
                  </p> 
                  <div style=" 
                      position: absolute; 
@@ -2253,7 +2241,7 @@ function renderEnergyExhaustedCard() {
         "“ 只有照顾好自己，才有力气去照顾未来。”",
         "“ 别拿别人的尺子量自己，休息是为了更好地校准。”",
         "“ 这一页翻不过去没关系，我们先折个角，睡了。”",
-        "“ 无论结果如何，旷野里的这束微光，永远陪着你。”",
+        "“ 无论结果如何，这束微光，永远陪着你。”",
         "“ 好了，听话。下线。”"
     ];
 
@@ -3650,14 +3638,14 @@ function renderFullReport(jobData, aiData) {
                             🔮 未来罗盘 (Future Compass)
                         </div>
                         
-                        <!-- 彩蛋：微光猫咪 -->
+                        <!-- 彩蛋：猫咪 -->
                         <div class="soul-tooltip-container" style="cursor: help; opacity: 0.6; transition: opacity 0.2s;">
                             <span style="font-size: 14px;">🐱</span>
                             
                             <!-- 悬停显示的寄语 (纯CSS实现Tooltip) -->
                             <div class="soul-tooltip-text">
                                 "莫愁前路无知己。<br>
-                                这束微光，送给旷野里的你。<br>
+                                微光，送给旷野里的你。<br>
                                 <div style='text-align:right; margin-top:4px; font-size:9px; opacity:0.8;'>一个待业半年的大龄青年 敬上</div>"
                             </div>
                         </div>

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-"微光·求职搭子" (Glimmer Vision) is a Chrome browser extension that provides AI-powered job analysis for Boss直聘 (zhipin.com). It functions as a job-seeking assistant with night vision capabilities, helping users analyze job postings, match resumes with positions, and identify potential risks.
+"微光" (Glimmer Vision) is a Chrome browser extension that provides AI-powered job analysis for Boss直聘 (zhipin.com). It functions as a job-seeking assistant with night vision capabilities, helping users analyze job postings, match resumes with positions, and identify potential risks.
 
 ## Core Architecture
 
