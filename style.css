@@ -58,6 +58,8 @@ body {
   color: var(--text-primary);
   font-size: var(--font-sm);
   overflow-x: hidden; /* 防止横向滚动条 */
+  min-height: auto; /* 确保高度自动适应内容 */
+  height: auto; /* 不设置固定高度 */
 }
 
 /* 主容器 */
@@ -65,6 +67,8 @@ body {
   width: 360px;
   padding: var(--space-lg);
   box-sizing: border-box;
+  min-height: auto;
+  height: auto;
 }
 
 /* 标题栏 */
@@ -382,6 +386,8 @@ label {
 .footer-actions {
   margin-top: 10px;
   text-align: center;
+  position: relative; /* 确保不是绝对定位 */
+  width: 100%;
 }
 
 #status {
