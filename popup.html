@@ -26,34 +26,10 @@
   <div class="card">
     <div class="card-title">🔑 身份凭证</div>
     <div class="input-group">
-      <label>选择算力通道</label>
-      <select id="computeMode" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 10px; font-size: 13px;">
-        <option value="energy">⚡ 微光能量 (每日限量·免费)</option>
-        <option value="custom_key">🔑 自有 API Key (稳定)</option>
-      </select>
-
-      <!-- 模式 A：能量面板 -->
-      <div id="energyPanel" style="background: linear-gradient(135deg, #f9fbe7 0%, #f0f4c3 100%); padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e6ee9c;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="font-size: 13px; color: #558b2f; font-weight: bold;">
-             当前能量: <span id="energyCount" style="font-size: 16px;">--</span>
-             <span style="font-size: 10px; color: #9e9d24; font-weight: normal;">(次)</span>
-          </span>
-          <button id="rechargeBtn" style="font-size: 11px; padding: 4px 10px; background: linear-gradient(to bottom, #9ccc65, #7cb342); color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🔌 连接信号塔</button>
-        </div>
-        <div style="font-size: 11px; color: #827717; line-height: 1.4;">🛑 算力有限，每日限量放送。<br> 请把资源留给还未上岸的人。</div>
-      </div>
-
-      <!-- 模式 B：API Key 输入 -->
-      <div id="apiKeyPanel" style="display: none;">
-        <label>DeepSeek API Key</label>
-        <input type="password" id="apiKey" placeholder="sk-...">
-      </div>
-
+      <label>DeepSeek API Key</label>
+      <input type="password" id="apiKey" placeholder="sk-...">
       <div class="tip" id="apiKeyTip">
         没有Key？去 <a href="https://platform.deepseek.com" target="_blank">DeepSeek官网</a> 申请
-        <span style="margin:0 5px; color:#ddd;">|</span>
-        <a href="#" id="openAuthorModal" style="color:#1e88e5;">🔌 连接信号塔</a>
       </div>
     </div>
   </div>
@@ -72,9 +48,6 @@
     <button id="aiGenerateBtn" class="magic-button">
       ✨ 一键生成我的专属配置
     </button>
-    <div class="privacy-tip">
-      🔒 <strong>安全承诺</strong>：您的数据仅保存在本地，分析时会发送给 DeepSeek 大模型。我们（开发者）不保存也不上传任何用户数据。
-    </div>
   </div>
 
   <!-- 区域2：状态反馈模态框 (默认隐藏) -->
@@ -127,77 +100,8 @@
         </label>
         <span>🛡️ 过滤不活跃HR (仅今日/3日内/本周)</span>
     </div>
-
-    <!-- 新增：实验室模式开关 -->
-    <div class="switch-row" style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px;">
-        <label class="switch">
-          <input type="checkbox" id="enableLabMode">
-          <span class="slider round"></span>
-        </label>
-        <span style="color: #e65100; font-weight: bold;">🧪 开启实验室模式 (深度探测)</span>
-    </div>
-    <div style="font-size: 10px; color: #999; margin-left: 5px; margin-top: 2px;">
-        ⚠️ 警告：该模式涉及底层 Hook，可能增加账号风控风险。请阅读<a href="#" id="viewDisclaimer" style="color: #666;">免责声明</a>。
-    </div>
   </div>
 
-  <!-- 区域4：高级/极客配置区 (生成的配置会填入这里) -->
-  <details class="advanced-details">
-    <summary>⚙️ 高级配置 (AI生成后可在此微调)</summary>
-    <div class="details-content">
-      <div class="input-group">
-        <label>🚫 职位名称/公司过滤 (每行一个)</label>
-        <textarea id="filterTitleKeywords" placeholder="例如：外包&#10;驻场"></textarea>
-      </div>
-
-      <div class="input-group">
-        <label>📝 职位详情/JD过滤 (每行一个)</label>
-        <textarea id="filterContentKeywords" placeholder="例如：接受出差&#10;早九晚六"></textarea>
-      </div>
-
-      <div class="input-group" style="display:none;">
-        <label>⏳ 扫描间隔（秒）</label>
-        <input type="number" id="scanPauseSeconds" min="0" max="60" step="1" placeholder="5">
-      </div>
-
-      <div class="input-group">
-        <label>🎯 暂停触发分数阈值</label>
-        <input type="number" id="autoPauseThreshold" min="0" max="100" step="1" placeholder="80">
-      </div>
-
-      <div class="input-group">
-        <label>🕒 历史记录保留时长 (天)</label>
-        <input type="number" id="historyRetentionDays" min="7" max="30" step="1" placeholder="15">
-      </div>
-
-      <div class="input-group">
-        <label>🔢 最大历史记录条数</label>
-        <input type="number" id="maxHistoryRecords" min="100" max="2000" step="100" placeholder="1000">
-      </div>
-
-      <div class="input-group">
-        <label>🤖 系统提示词 (System Prompt)</label>
-        <textarea id="systemPrompt" class="code-font" placeholder="点击上方生成按钮自动填充..."></textarea>
-      </div>
-
-      <div class="input-group">
-        <label>💬 聊天提示词 (Chat Prompt)</label>
-        <textarea id="chatSystemPrompt" class="code-font" placeholder="点击上方生成按钮自动填充..."></textarea>
-      </div>
-
-      <div class="input-group">
-        <label>🛡️ 关键词武器库 (JSON)</label>
-        <textarea id="keywordArsenal" class="code-font" placeholder="点击上方生成按钮自动填充..."></textarea>
-      </div>
-
-      <!-- 可视化关键词展示区 -->
-      <div class="keyword-arsenal-visual">
-          <div class="arsenal-title">🔍 生成的关键词标签 (点击复制):</div>
-          <div id="keywordTagsContainer"></div>
-      </div>
-    </div>
-  </details>
-  
   <div class="footer-actions">
     <button id="saveBtn" class="save-btn">💾 保存所有配置</button>
     <div id="status"></div>
