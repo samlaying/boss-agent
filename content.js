@@ -693,17 +693,8 @@ function initWrapper() {
       <!-- 底部按钮区 -->
       <div class="panel-footer" style="padding:15px; background:#fff; border-top:1px solid var(--border-light); border-radius:0 0 12px 12px;">
           <div style="display:flex; gap:10px;">
-              <button id="btn-analyze" style="flex:1; padding:8px; background:linear-gradient(135deg, #4fc3f7, #0288d1); color:#fff; border:none; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 4px 10px rgba(2,136,209,0.3); transition:transform 0.1s;">⚡ 深度剖析</button>
-              <button id="btn-scan" style="flex:1; padding:8px; background:#fff; color:#e65100; border:1px solid #ffe0b2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">批量巡检(慎用)</button>
-              <button id="btn-capture" style="flex:1; padding:8px; background:#fff; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">📷 截图报告</button>
-          </div>
-          <div style="display:flex; gap:10px; margin-top:8px;">
               <button id="btn-auto-loop" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🔁 自动沟通循环</button>
               <button id="btn-stop-auto-loop" style="flex:1; padding:8px; background:#fff; color:#e53935; border:1px solid #ffcdd2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🛑 停止自动循环</button>
-          </div>
-          <div style="text-align:right; margin-top:10px; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
-              <button id="btn-auto-apply" style="display:none; padding:6px 12px; border:none; color:#fff; background:linear-gradient(90deg, #00bebd, #00a0a0); border-radius:20px; font-size:12px; cursor:pointer; font-weight:700;">⚡ 一键招呼</button>
-              <button id="btn-ignore" style="display:none; padding:6px 12px; border:1px solid var(--error-color); color:var(--error-color); background:#fff; border-radius:20px; font-size:12px; cursor:pointer; font-weight:500;">🚫 不感兴趣</button>
           </div>
       </div>
 
