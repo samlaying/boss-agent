@@ -587,3 +587,54 @@ textarea {
 #resume {
   max-height: 150px !important;
 }
+
+/* ========== 彻底修复弹窗空白问题 ========== */
+
+/* 强制隐藏所有modal，确保不占据任何空间 */
+.modal-overlay {
+  display: none !important;
+  position: static !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* 当modal真正需要显示时，通过JS移除hidden类来激活 */
+.modal-overlay.active {
+  display: flex !important;
+  position: fixed !important;
+  height: 100vh !important;
+  width: 100vw !important;
+}
+
+/* 隐藏AI配置modal的特定样式 */
+#aiConfigModal {
+  display: none !important;
+  position: static !important;
+  height: 0 !important;
+}
+
+#localAuthorModal {
+  display: none !important;
+  position: static !important;
+  height: 0 !important;
+}
+
+/* 确保所有可能的隐藏元素不占用空间 */
+[style*="display: none"] {
+  position: static !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 防止任何元素的min-height撑开页面 */
+* {
+  min-height: 0 !important;
+}
+
+/* 允许必要的元素有min-height */
+body, html, .main-container, .card, textarea, input {
+  min-height: auto !important;
+}
