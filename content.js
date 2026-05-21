@@ -3021,6 +3021,30 @@ async function withTimeout(promise, ms, label) {
     }
 }
 
+async function randomHumanPause(minMs, maxMs, label) {
+    const min = Math.max(0, Number(minMs) || 0);
+    const max = Math.max(min, Number(maxMs) || min);
+    const duration = min + Math.floor(Math.random() * (max - min + 1));
+    if (label) console.log(`⏳ [BossAutoApply] ${label}，随机停顿 ${Math.round(duration / 1000)}s`);
+
+    return await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(true), duration);
+        const signal = autoApplyController && autoApplyController.signal;
+        if (!signal) return;
+
+        const onAbort = () => {
+            clearTimeout(timer);
+            resolve(false);
+        };
+        if (signal.aborted) {
+            onAbort();
+            return;
+        }
+        signal.addEventListener('abort', onAbort, { once: true });
+        setTimeout(() => signal.removeEventListener('abort', onAbort), duration + 50);
+    });
+}
+
 async function autoApplyNext() {
     if (!isAutoApplying) return;
     if (autoApplyController && autoApplyController.signal.aborted) return;
@@ -3071,6 +3095,7 @@ async function autoApplyNext() {
     HistoryManager.incrementDailyCount();
 
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (await randomHumanPause(4000, 9000, "点开职位前") === false) return;
     card.click();
     updateRadarUI(targetTitle, "加载中...", "...", "");
 
@@ -3117,6 +3142,7 @@ async function autoApplyNext() {
         greetingText = "您好，我对该岗位很感兴趣，期待进一步沟通。";
     }
 
+    if (await randomHumanPause(8000, 18000, "发送招呼前") === false) return;
     const sendResult = await withTimeout(
         autoGreet(greetingText, { openInNewTab: true, detailUrl }),
         12000,
@@ -3147,8 +3173,7 @@ async function autoApplyNext() {
     card.classList.add('boss-inactive');
     card.style.opacity = "0.5";
 
-    const delay = 8000 + Math.random() * 7000;
-    await new Promise(r => setTimeout(r, delay));
+    if (await randomHumanPause(20000, 40000, "处理下一个岗位前") === false) return;
     autoApplyNext();
 }
 
