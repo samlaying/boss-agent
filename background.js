@@ -490,8 +490,46 @@ async function handleRedeemDailyKey(key, sendResponse) {
 // === 请求控制器 (用于停止分析) ===
 const activeRequests = new Map();
 
+async function handleAutoApplyRemoteLogUpload(request, sendResponse) {
+    try {
+        const endpoint = String(request.endpoint || "").trim();
+        if (!/^https?:\/\//i.test(endpoint)) {
+            sendResponse({ success: false, error: "日志上传 URL 必须以 http:// 或 https:// 开头" });
+            return;
+        }
+
+        const headers = { "Content-Type": "application/json" };
+        const token = String(request.token || "");
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+            headers["X-Log-Token"] = token;
+        }
+
+        const resp = await fetch(endpoint, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(request.payload || {})
+        });
+
+        if (!resp.ok) {
+            const text = await resp.text().catch(() => "");
+            sendResponse({ success: false, error: `remote ${resp.status}: ${text.slice(0, 160)}` });
+            return;
+        }
+
+        sendResponse({ success: true });
+    } catch (error) {
+        sendResponse({ success: false, error: error.message || String(error) });
+    }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
+    if (request.action === "upload_auto_apply_log") {
+        handleAutoApplyRemoteLogUpload(request, sendResponse);
+        return true;
+    }
+
     // === 停止分析接口 ===
     if (request.action === "stop_analysis") {
         const tabId = sender.tab ? sender.tab.id : null;

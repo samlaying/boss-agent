@@ -60,6 +60,16 @@
 
 ## 🛠️ 安装与使用指南
 
+## 🧩 版本构建
+
+本项目使用同一套代码构建两个版本，避免在 `main` 和实习生分支之间手动同步通用修复：
+
+```bash
+npm run build
+```
+
+构建后会生成 `dist/weiguang-social.zip` 和 `dist/weiguang-intern.zip`。社招版关闭自动沟通和实习生硬过滤，实习生版开启这些能力。更多说明见 `BUILD_VARIANTS.md`。
+
 ### 第一步：安装插件
 1. 下载本插件的压缩包并解压（或者 `git clone` 源码）。
 2. 打开 Chrome 浏览器，在地址栏输入 `chrome://extensions/`。
