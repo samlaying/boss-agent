@@ -14,6 +14,10 @@ let isAutoApplying = false;
 let autoApplyIndex = -1;
 let autoApplyCards = [];
 let autoApplyController = null;
+let autoApplyLogWriteQueue = Promise.resolve();
+
+const AUTO_APPLY_LOG_KEY = "autoApplyActionLog";
+const AUTO_APPLY_LOG_MAX = 1000;
 
 // 全局变量：隐形数据缓存
 let rawSalaryData = null;
@@ -604,6 +608,10 @@ function initWrapper() {
           <div style="display:flex; gap:10px;">
               <button id="btn-auto-loop" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🔁 自动沟通循环</button>
               <button id="btn-stop-auto-loop" style="flex:1; padding:8px; background:#fff; color:#e53935; border:1px solid #ffcdd2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🛑 停止自动循环</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+              <button id="btn-export-auto-log" style="flex:1; padding:8px; background:#f8fcfc; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">📤 明细日志</button>
+              <button id="btn-export-auto-brief" style="flex:1; padding:8px; background:#f8fcfc; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🧾 岗位简报</button>
           </div>
       </div>
 
@@ -2831,6 +2839,186 @@ async function scanNext() {
     scanNext();
 }
 
+// === 自动沟通日志系统 ===
+
+function normalizeAutoApplyText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function decodeBossObfuscatedDigits(value) {
+    return String(value || "").replace(/[-]/g, (char) => {
+        return String(char.codePointAt(0) - 0xE031);
+    });
+}
+
+function cleanJobDescriptionText(value) {
+    const text = decodeBossObfuscatedDigits(normalizeAutoApplyText(value));
+    return text
+        .replace(/^职位描述\s*/i, "")
+        .replace(/微信扫码分享\s*举报\s*/g, "")
+        .replace(/收藏\s*立即沟通\s*/g, "")
+        .trim();
+}
+
+function toLocalTimeString(ts = Date.now()) {
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function buildAutoApplyLogMeta(data = {}, extra = {}) {
+    return {
+        jobId: extra.jobId || data.jobId || "",
+        title: normalizeAutoApplyText(data.detailTitle || data.title || extra.title || ""),
+        company: normalizeAutoApplyText(data.company || extra.company || ""),
+        salary: normalizeAutoApplyText(data.salary || extra.salary || ""),
+        salarySource: normalizeAutoApplyText(data.salarySource || extra.salarySource || ""),
+        salaryProbe: normalizeAutoApplyText(data.salaryProbe || extra.salaryProbe || ""),
+        description: cleanJobDescriptionText(data.description || data.rawDesc || extra.description || ""),
+        descriptionSource: normalizeAutoApplyText(data.descriptionSource || extra.descriptionSource || ""),
+        descriptionProbe: normalizeAutoApplyText(data.descriptionProbe || extra.descriptionProbe || ""),
+        hr: normalizeAutoApplyText(data.hr || extra.hr || ""),
+        hrTitle: normalizeAutoApplyText(data.hrTitle || extra.hrTitle || ""),
+        active: normalizeAutoApplyText(data.active || extra.active || ""),
+        reason: normalizeAutoApplyText(extra.reason || ""),
+        detailUrl: extra.detailUrl || data.detailUrl || "",
+        source: extra.source || ""
+    };
+}
+
+async function appendAutoApplyLog(action, data = {}, extra = {}) {
+    const ts = Date.now();
+    const entry = {
+        ts,
+        time: toLocalTimeString(ts),
+        action,
+        ...buildAutoApplyLogMeta(data, extra)
+    };
+
+    autoApplyLogWriteQueue = autoApplyLogWriteQueue
+        .catch(() => {})
+        .then(async () => {
+            try {
+                const res = await new Promise(r => chrome.storage.local.get([AUTO_APPLY_LOG_KEY], r));
+                const list = Array.isArray(res[AUTO_APPLY_LOG_KEY]) ? res[AUTO_APPLY_LOG_KEY] : [];
+                list.push(entry);
+                const trimmed = list.slice(-AUTO_APPLY_LOG_MAX);
+                await chrome.storage.local.set({ [AUTO_APPLY_LOG_KEY]: trimmed });
+                console.log(`[BossAutoApplyLog] ${entry.time} ${action}: ${entry.title} | ${entry.company} | ${entry.salary || "薪资未知"} | ${entry.reason}`);
+            } catch (e) {
+                console.warn("⚠️ [BossAutoApplyLog] 写入失败:", e);
+            }
+        });
+
+    await autoApplyLogWriteQueue;
+    return entry;
+}
+
+function csvEscape(value) {
+    const text = String(value ?? "");
+    if (/[",\n\r]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+}
+
+function buildAutoApplyBriefRows(logs) {
+    return logs
+        .filter(item => item && item.action === "checked")
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+        .map(item => ({
+            time: item.time || "",
+            company: item.company || "",
+            action: item.action || "",
+            title: item.title || "",
+            salary: item.salary || "",
+            description: item.description || "",
+            hr: item.hr || "",
+            hrTitle: item.hrTitle || "",
+            active: item.active || "",
+            reason: item.reason || "",
+            jobId: item.jobId || "",
+            detailUrl: item.detailUrl || "",
+            source: item.source || ""
+        }));
+}
+
+function buildAutoApplyLogCsv(logs) {
+    const headers = [
+        "time", "action", "title", "salary", "salarySource", "salaryProbe",
+        "description", "descriptionSource", "descriptionProbe", "company",
+        "hr", "hrTitle", "active", "reason", "jobId", "detailUrl", "source"
+    ];
+    const rows = logs.map(item => headers.map(key => csvEscape(item[key])).join(","));
+    return [headers.join(","), ...rows].join("\n");
+}
+
+function buildAutoApplyBriefCsv(logs) {
+    const headers = [
+        "time", "company", "action", "title", "salary", "description",
+        "hr", "hrTitle", "active", "reason", "jobId", "detailUrl", "source"
+    ];
+    const rows = buildAutoApplyBriefRows(logs).map(item => headers.map(key => csvEscape(item[key])).join(","));
+    return [headers.join(","), ...rows].join("\n");
+}
+
+function downloadCsv(csv, filename) {
+    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function getExportTimestamp() {
+    const ts = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
+}
+
+async function getAutoApplyLogsForExport() {
+    await autoApplyLogWriteQueue.catch(() => {});
+    const res = await new Promise(r => chrome.storage.local.get([AUTO_APPLY_LOG_KEY], r));
+    return Array.isArray(res[AUTO_APPLY_LOG_KEY]) ? res[AUTO_APPLY_LOG_KEY] : [];
+}
+
+async function exportAutoApplyLog() {
+    try {
+        const logs = await getAutoApplyLogsForExport();
+        if (!logs.length) {
+            showToast("暂无自动沟通日志可导出");
+            return;
+        }
+        const csv = buildAutoApplyLogCsv(logs);
+        downloadCsv(csv, `boss-auto-apply-log-${getExportTimestamp()}.csv`);
+        showToast(`已导出 ${logs.length} 条明细日志`);
+    } catch (e) {
+        console.error("❌ [BossAutoApplyLog] 导出失败:", e);
+        showToast("导出日志失败");
+    }
+}
+
+async function exportAutoApplyBrief() {
+    try {
+        const logs = await getAutoApplyLogsForExport();
+        if (!logs.length) {
+            showToast("暂无岗位简报可导出");
+            return;
+        }
+        const briefRows = buildAutoApplyBriefRows(logs);
+        const csv = buildAutoApplyBriefCsv(logs);
+        downloadCsv(csv, `boss-auto-apply-brief-${getExportTimestamp()}.csv`);
+        showToast(`已导出 ${briefRows.length} 条扫描简报 (${logs.length} 条事件)`);
+    } catch (e) {
+        console.error("❌ [BossAutoApplyBrief] 导出失败:", e);
+        showToast("导出简报失败");
+    }
+}
+
 // === 场景 C：自动沟通循环 ===
 function stopAutoApplyLoop() {
     isAutoApplying = false;
@@ -2838,6 +3026,9 @@ function stopAutoApplyLoop() {
         autoApplyController.abort();
         autoApplyController = null;
     }
+    appendAutoApplyLog("loop_stopped", {}, {
+        reason: "用户手动停止"
+    });
     const btn = document.getElementById('btn-auto-loop');
     if (btn) {
         btn.innerText = "🔁 自动沟通循环";
@@ -2883,6 +3074,9 @@ function toggleAutoApplyLoop() {
     }
 
     autoApplyIndex = -1;
+    appendAutoApplyLog("loop_started", {}, {
+        reason: `共 ${autoApplyCards.length} 个岗位`
+    });
     autoApplyNext();
 }
 
@@ -3079,6 +3273,12 @@ async function autoApplyNext() {
     if (preJobId) {
         const history = HistoryManager.get(preJobId);
         if (history && (history.st === 2 || history.st === 3)) {
+            appendAutoApplyLog("skipped_history", {}, {
+                jobId: preJobId,
+                title: targetTitle,
+                company: targetCompany,
+                reason: history.st === 2 ? '✅ 已沟通' : '🚫 已忽略'
+            });
             card.classList.add('boss-inactive');
             card.setAttribute('data-reason', history.st === 2 ? '✅ 已沟通' : '🚫 已忽略');
             card.style.opacity = "0.5";
@@ -3089,6 +3289,9 @@ async function autoApplyNext() {
 
     if (!HistoryManager.checkDailyLimit()) {
         console.log("🛑 [BossAutoApply] 达到每日限制，停止自动沟通");
+        appendAutoApplyLog("stopped_daily_limit", {}, {
+            reason: "达到每日沟通上限"
+        });
         stopAutoApplyLoop();
         return;
     }
@@ -3105,8 +3308,19 @@ async function autoApplyNext() {
     const newData = await waitForSync(targetTitle, targetCompany);
     updateRadarUI(newData.detailTitle, newData.company, newData.hr, newData.active, newData.hrTitle);
 
+    appendAutoApplyLog("checked", newData, {
+        jobId: preJobId,
+        detailUrl: detailUrl,
+        source: "card_click"
+    });
+
     const filterRes = await shouldSkipByFilters(newData);
     if (filterRes.skip) {
+        appendAutoApplyLog("skipped_filter", newData, {
+            jobId: preJobId,
+            detailUrl: detailUrl,
+            reason: filterRes.reason
+        });
         card.classList.remove('boss-scanning');
         card.classList.add('boss-inactive');
         card.setAttribute('data-reason', filterRes.reason);
@@ -3120,6 +3334,11 @@ async function autoApplyNext() {
     if (currentJobId) {
         const h = HistoryManager.get(currentJobId);
         if (h && (h.st === 2 || h.st === 3)) {
+            appendAutoApplyLog("skipped_history_after_open", newData, {
+                jobId: currentJobId,
+                detailUrl: detailUrl,
+                reason: h.st === 2 ? '✅ 已沟通' : '🚫 已忽略'
+            });
             card.classList.remove('boss-scanning');
             card.classList.add('boss-inactive');
             card.setAttribute('data-reason', h.st === 2 ? '✅ 已沟通' : '🚫 已忽略');
@@ -3150,15 +3369,35 @@ async function autoApplyNext() {
     );
     if (!sendResult.ok) {
         console.warn("⏱️ [BossAutoApply] 发送超时，跳过该岗位");
+        appendAutoApplyLog("timeout", newData, {
+            jobId: currentJobId || preJobId,
+            detailUrl: detailUrl,
+            reason: "发送超时"
+        });
         if (currentJobId) {
             HistoryManager.add(currentJobId, 3, 0, "发送超时");
         }
         card.setAttribute('data-reason', '⏱️ 发送超时');
     } else if (sendResult.value === "pending") {
+        appendAutoApplyLog("pending_opened", newData, {
+            jobId: currentJobId || preJobId,
+            detailUrl: detailUrl,
+            reason: "已打开新沟通页"
+        });
         card.setAttribute('data-reason', '💬 已打开新沟通页');
     } else if (sendResult.value && currentJobId) {
+        appendAutoApplyLog("sent", newData, {
+            jobId: currentJobId,
+            detailUrl: detailUrl,
+            reason: "沟通成功"
+        });
         HistoryManager.markGreeted(currentJobId);
     } else {
+        appendAutoApplyLog("failed", newData, {
+            jobId: currentJobId || preJobId,
+            detailUrl: detailUrl,
+            reason: "发送失败"
+        });
         if (currentJobId) {
             HistoryManager.add(currentJobId, 3, 0, "发送失败");
         }
@@ -5432,6 +5671,9 @@ function bindEvents() {
         stopAutoApplyLoop();
         showToast("已停止自动沟通循环");
     });
+
+    safeBind('btn-export-auto-log', exportAutoApplyLog);
+    safeBind('btn-export-auto-brief', exportAutoApplyBrief);
 
     safeBind('btn-ignore', markAsIgnore);
 
