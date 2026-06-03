@@ -14,7 +14,7 @@ const variants = {
         name: "微光 社招版",
         description: "面向社招求职的 Boss 直聘 AI 职位分析助手。",
         features: {
-            autoApply: false,
+            autoApply: true,
             internshipHardFilter: false
         }
     },

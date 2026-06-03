@@ -68,7 +68,7 @@
 npm run build
 ```
 
-构建后会生成 `dist/weiguang-social.zip` 和 `dist/weiguang-intern.zip`。社招版关闭自动沟通和实习生硬过滤，实习生版开启这些能力。更多说明见 `BUILD_VARIANTS.md`。
+构建后会生成 `dist/weiguang-social.zip` 和 `dist/weiguang-intern.zip`。两版都开启自动沟通；社招版关闭实习生硬过滤，实习生版开启实习生硬过滤。更多说明见 `BUILD_VARIANTS.md`。
 
 ### 第一步：安装插件
 1. 下载本插件的压缩包并解压（或者 `git clone` 源码）。
