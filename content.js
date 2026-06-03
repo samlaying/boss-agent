@@ -7,6 +7,28 @@ console.log("🚀 [BossHelper] Content Script Loaded v" + chrome.runtime.getMani
 // console.info = function() {};
 // console.debug = function() {};
 
+const WEIGUANG_VARIANT = globalThis.__WEIGUANG_VARIANT__ || {
+    mode: "intern",
+    label: "实习生版",
+    features: {
+        autoApply: true,
+        internshipHardFilter: true
+    }
+};
+console.log(`🧩 [BossHelper] Variant: ${WEIGUANG_VARIANT.label || WEIGUANG_VARIANT.mode || "unknown"}`);
+
+function isVariantFeatureEnabled(featureName) {
+    return WEIGUANG_VARIANT.features && WEIGUANG_VARIANT.features[featureName] === true;
+}
+
+function isAutoApplyEnabled() {
+    return isVariantFeatureEnabled("autoApply");
+}
+
+function isInternshipHardFilterEnabled() {
+    return isVariantFeatureEnabled("internshipHardFilter");
+}
+
 let isScanning = false;
 let currentJobIndex = -1;
 let jobCards = [];
@@ -1956,7 +1978,6 @@ async function manualAnalyze(arg) {
             
             // 使用 saveAnalysis 保存详情
             HistoryManager.saveAnalysis(jobId, data, result);
-            HistoryManager.incrementDailyCount(); // 记录今日分析次数
         }
         
         // document.getElementById('btn-auto-greet').style.display = 'inline-block';
@@ -2828,54 +2849,8 @@ function toggleScan() {
     }
 }
 
-// === 每日扫描限制常量 ===
-const DAILY_SCAN_LIMIT = 300;
-
-// 辅助函数：检查并增加每日扫描计数
-async function checkAndIncrementDailyLimit() {
-    const today = new Date().toDateString();
-    const data = await new Promise(r => chrome.storage.local.get(['dailyScanCount', 'lastScanDate'], r));
-    
-    let count = data.dailyScanCount || 0;
-    const lastDate = data.lastScanDate;
-
-    // 如果不是今天，重置计数
-    if (lastDate !== today) {
-        count = 0;
-    }
-
-    if (count >= DAILY_SCAN_LIMIT) {
-        return { allowed: false, count: count };
-    }
-
-    // 增加计数
-    count++;
-    await chrome.storage.local.set({ 
-        'dailyScanCount': count, 
-        'lastScanDate': today 
-    });
-    
-    return { allowed: true, count: count };
-}
-
 async function scanNext() {
     if(!isScanning) return;
-
-    // === 新增：每日扫描限制检查 ===
-    if (!HistoryManager.checkDailyLimit()) {
-        console.log("🛑 [BossScan] 达到每日扫描上限 (500次)");
-        toggleScan(); // Stop scanning
-        
-        const statusEl = document.getElementById('radar-status');
-        if(statusEl) {
-            statusEl.innerText = "🛑 今日自动扫描能量已耗尽";
-            statusEl.style.color = "red";
-        }
-        
-        // 视觉反馈
-        alert("今日自动扫描次数已达上限 (500次)，为保障账号安全，请明日再试！");
-        return;
-    }
 
     currentJobIndex++;
     
@@ -2968,13 +2943,6 @@ async function scanNext() {
             return;
         }
     }
-
-    // === 插入：每日扫描限制 (Anti-Scraping Limit) ===
-    HistoryManager.incrementDailyCount();
-    
-    // 更新 UI 显示今日计数
-    const currentStatusTag = document.getElementById('scan-status-tag');
-    if (currentStatusTag) currentStatusTag.innerText = `Running (${HistoryManager.dailyCount}/${HistoryManager.dailyLimit})`;
 
     card.click();
     
@@ -3653,6 +3621,10 @@ function stopAutoApplyLoop(finalStatusText = "") {
 }
 
 function toggleAutoApplyLoop() {
+    if (!isAutoApplyEnabled()) {
+        showToast("社招版未启用自动沟通循环");
+        return;
+    }
     if (isScanning) {
         alert("请先停止批量巡检，再启动自动沟通循环");
         return;
@@ -3745,6 +3717,10 @@ function hasMonthlyKSalary(data) {
 }
 
 function getInternshipHardSkipReason(data) {
+    if (!isInternshipHardFilterEnabled()) {
+        return { skip: false, reason: "" };
+    }
+
     const titleText = normalizeAutoApplyText([
         data && data.detailTitle,
         data && data.company
@@ -3957,17 +3933,6 @@ async function autoApplyNext() {
             return autoApplyNext();
         }
     }
-
-    if (!HistoryManager.checkDailyLimit()) {
-        console.log("🛑 [BossAutoApply] 达到每日限制，停止自动沟通");
-        appendAutoApplyLog("stopped_daily_limit", {}, {
-            reason: `dailyCount=${HistoryManager.dailyCount}/${HistoryManager.dailyLimit}`,
-            source: "auto_loop"
-        });
-        stopAutoApplyLoop();
-        return;
-    }
-    HistoryManager.incrementDailyCount();
 
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (await randomHumanPause(4000, 9000, "点开职位前") === false) return;
@@ -4367,20 +4332,25 @@ function renderFullReport(jobData, aiData) {
     window.lastGlimmerData = { jobData, aiData };
     const autoApplyBtn = document.getElementById('btn-auto-apply');
     if (autoApplyBtn) {
-        const score = (aiData && aiData.summary && typeof aiData.summary.score === 'number')
-            ? aiData.summary.score
-            : (aiData ? aiData.score : 0);
-        const hardFilter = getInternshipHardSkipReason(jobData);
-        autoApplyBtn.style.display = 'inline-block';
-        if (hardFilter.skip) {
-            autoApplyBtn.style.background = '#999';
-            autoApplyBtn.title = hardFilter.reason;
-        } else if (score < 70) {
-            autoApplyBtn.style.background = '#999';
-            autoApplyBtn.title = `分数 (${score}) 低于 70，需确认`;
+        if (!isAutoApplyEnabled()) {
+            autoApplyBtn.style.display = 'none';
+            autoApplyBtn.title = "社招版未启用一键招呼";
         } else {
-            autoApplyBtn.style.background = 'linear-gradient(90deg, #00bebd, #00a0a0)';
-            autoApplyBtn.title = '';
+            const score = (aiData && aiData.summary && typeof aiData.summary.score === 'number')
+                ? aiData.summary.score
+                : (aiData ? aiData.score : 0);
+            const hardFilter = getInternshipHardSkipReason(jobData);
+            autoApplyBtn.style.display = 'inline-block';
+            if (hardFilter.skip) {
+                autoApplyBtn.style.background = '#999';
+                autoApplyBtn.title = hardFilter.reason;
+            } else if (score < 70) {
+                autoApplyBtn.style.background = '#999';
+                autoApplyBtn.title = `分数 (${score}) 低于 70，需确认`;
+            } else {
+                autoApplyBtn.style.background = 'linear-gradient(90deg, #00bebd, #00a0a0)';
+                autoApplyBtn.title = '';
+            }
         }
     }
     document.getElementById('report-content').style.display = 'block';
@@ -5997,17 +5967,12 @@ const HistoryManager = {
     isLoaded: false,
     MAX_SIZE: 3000, // 默认扩容到 3000
     EXPIRE_TIME: 30 * 24 * 60 * 60 * 1000, // 默认30天
-    
-    // === 新增：每日扫描限制 ===
-    dailyLimit: 500,
-    dailyCount: 0,
-    lastScanDate: '',
 
     async init() {
         if (this.isLoaded) return;
         try {
-            // 同时读取配置、历史记录和每日扫描数据
-            const res = await new Promise(r => chrome.storage.local.get(['jobHistory', 'historyRetentionDays', 'maxHistoryRecords', 'dailyScanData'], r));
+            // 同时读取配置和历史记录
+            const res = await new Promise(r => chrome.storage.local.get(['jobHistory', 'historyRetentionDays', 'maxHistoryRecords'], r));
             
             // 1. 更新配置
             if (res.historyRetentionDays) {
@@ -6024,25 +5989,7 @@ const HistoryManager = {
                 }
             }
 
-            // === 2. 加载每日扫描数据 ===
-            const today = new Date().toDateString();
-            if (res.dailyScanData) {
-                if (res.dailyScanData.date === today) {
-                    this.dailyCount = res.dailyScanData.count || 0;
-                    this.lastScanDate = res.dailyScanData.date;
-                } else {
-                    // 新的一天，重置
-                    this.dailyCount = 0;
-                    this.lastScanDate = today;
-                    this.saveDailyData();
-                }
-            } else {
-                 this.dailyCount = 0;
-                 this.lastScanDate = today;
-                 this.saveDailyData();
-            }
-
-            console.log(`⚙️ [History] 配置加载: 保留${this.EXPIRE_TIME / (24*3600*1000)}天, 最大${this.MAX_SIZE}条, 今日已扫${this.dailyCount}/${this.dailyLimit}`);
+            console.log(`⚙️ [History] 配置加载: 保留${this.EXPIRE_TIME / (24*3600*1000)}天, 最大${this.MAX_SIZE}条`);
 
             if (res.jobHistory) {
                 // 将对象转回 Map
@@ -6064,32 +6011,6 @@ const HistoryManager = {
         } catch (e) {
             console.warn("⚠️ [History] storage.set failed:", e.message || e);
         }
-    },
-
-    saveDailyData() {
-        this.safeStorageSet({
-            dailyScanData: {
-                date: this.lastScanDate,
-                count: this.dailyCount
-            }
-        });
-    },
-
-    checkDailyLimit() {
-        const today = new Date().toDateString();
-        // 再次检查日期，防止跨天
-        if (this.lastScanDate !== today) {
-            this.dailyCount = 0;
-            this.lastScanDate = today;
-            this.saveDailyData();
-        }
-        return this.dailyCount < this.dailyLimit;
-    },
-
-    incrementDailyCount() {
-        this.dailyCount++;
-        this.saveDailyData();
-        console.log(`📊 [History] 今日计数+1: ${this.dailyCount}/${this.dailyLimit}`);
     },
 
     save() {
@@ -6313,14 +6234,21 @@ function bindEvents() {
     const p = document.getElementById('boss-copilot-panel');
     
     // 安全绑定辅助函数
-    const safeBind = (id, handler) => {
+    const safeBind = (id, handler, options = {}) => {
         const el = document.getElementById(id);
         if (el) {
             el.onclick = handler;
-        } else {
+        } else if (!options.optional) {
             console.warn(`[BossDebug] Warning: Element #${id} not found during event binding.`);
         }
     };
+
+    if (!isAutoApplyEnabled()) {
+        ['btn-auto-loop', 'btn-stop-auto-loop', 'btn-export-auto-log', 'btn-export-auto-brief', 'btn-config-remote-log'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }
 
     if (p) {
         safeBind('btn-minimize', () => { 
@@ -6338,17 +6266,21 @@ function bindEvents() {
         }
     });
 
-    safeBind('btn-analyze', manualAnalyze);
+    safeBind('btn-analyze', manualAnalyze, { optional: true });
     safeBind('btn-scan', function() {
         if (isScanning) {
             toggleScan();
             return;
         }
-        if (confirm("⚠️ 【高风险操作警告】\n\n批量巡检功能会模拟人类行为连续浏览职位。\n\n尽管我们已加入随机延迟，但高频操作仍可能触发平台风控（包括但不限于：验证码拦截、账号临时限制、封号）。\n\n建议：\n1. 仅在必要时使用\n2. 每日控制扫描数量\n3. 配合“不活跃HR过滤”使用\n\n是否继续？")) {
+        if (confirm("⚠️ 【高风险操作警告】\n\n批量巡检功能会模拟人类行为连续浏览职位。\n\n尽管我们已加入随机延迟，但高频操作仍可能触发平台风控（包括但不限于：验证码拦截、账号临时限制、封号）。\n\n建议：\n1. 仅在必要时使用\n2. 控制操作节奏\n3. 配合“不活跃HR过滤”使用\n\n是否继续？")) {
             toggleScan();
         }
-    });
+    }, { optional: true });
     safeBind('btn-auto-loop', function() {
+        if (!isAutoApplyEnabled()) {
+            showToast("社招版未启用自动沟通循环");
+            return;
+        }
         if (isAutoApplying) {
             toggleAutoApplyLoop();
             return;
@@ -6369,10 +6301,14 @@ function bindEvents() {
     safeBind('btn-export-auto-brief', exportAutoApplyBrief);
     safeBind('btn-config-remote-log', configureAutoApplyRemoteLog);
 
-    safeBind('btn-ignore', markAsIgnore);
+    safeBind('btn-ignore', markAsIgnore, { optional: true });
 
     safeBind('btn-auto-apply', async () => {
         const btn = document.getElementById('btn-auto-apply');
+        if (!isAutoApplyEnabled()) {
+            alert("社招版未启用一键招呼。");
+            return;
+        }
         if (!window.lastGlimmerData) {
             alert("请先点击【深度剖析】，生成策略后再使用一键招呼。");
             return;
@@ -6430,12 +6366,12 @@ function bindEvents() {
                 btn.disabled = false;
             }, 2000);
         }
-    });
+    }, { optional: true });
     
     // btn-auto-greet 已移除
     // safeBind('ai-chat-input', function() { this.select(); document.execCommand('copy'); });
     
-    safeBind('btn-capture', startCaptureSelection);
+    safeBind('btn-capture', startCaptureSelection, { optional: true });
 }
 
 async function startCaptureSelection() {

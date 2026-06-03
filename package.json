@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-variants.mjs",
+    "build:social": "node scripts/build-variants.mjs social",
+    "build:intern": "node scripts/build-variants.mjs intern"
+  }
+}
