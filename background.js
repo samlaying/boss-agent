@@ -643,6 +643,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    // === LLM 润色打招呼话术接口 ===
+    if (request.action === "generate_greeting_llm") {
+        console.log("🤖 收到 LLM 润色打招呼请求...");
+        const { jobText, hrName, bossTitle, resume } = request;
+
+        chrome.storage.local.get(['greetingLlmConfig'], async (data) => {
+            try {
+                const config = data.greetingLlmConfig || {};
+                await handleGreetingLlmCall(
+                    config,
+                    resume,
+                    jobText,
+                    hrName,
+                    bossTitle,
+                    sendResponse,
+                    sender.tab ? sender.tab.id : null
+                );
+            } catch (error) {
+                console.error("❌ LLM 润色流程异常:", error);
+                sendResponse({ success: false, error: error.message });
+            }
+        });
+
+        return true;
+    }
+
     if (request.action === "open_chat_tab") {
         const url = request.url;
         if (!url) {
@@ -1177,4 +1203,87 @@ function prepareSystemPrompt(userSystemPrompt) {
 
 function prepareChatSystemPrompt(chatSystemPrompt) {
     return chatSystemPrompt || DEFAULT_CHAT_SYSTEM_PROMPT;
+}
+
+// === 默认 LLM 配置 (小米 mimo) ===
+const DEFAULT_LLM_ENDPOINT = 'https://token-plan-cn.xiaomimimo.com/v1';
+const DEFAULT_LLM_MODEL = 'mimo-v2.5-pro';
+const DEFAULT_LLM_API_KEY = 'tp-czq97wj2vol05hpfipuico337yuvk7tbo8ikslu5yh8vjnlb';
+
+// === 基于简历+JD 生成打招呼话术 ===
+async function handleGreetingLlmCall(config, resume, jobText, hrName, bossTitle, sendResponse, tabId) {
+    // 优先使用用户配置，否则用默认值
+    const endpoint = (config.endpoint && config.endpoint.trim()) || DEFAULT_LLM_ENDPOINT;
+    const model = (config.model && config.model.trim()) || DEFAULT_LLM_MODEL;
+    const apiKey = (config.apiKey && config.apiKey.trim()) || DEFAULT_LLM_API_KEY;
+
+    const sysPrompt = `你是一名求职顾问。你的任务是：
+1. 从求职者简历中提取与目标岗位最匹配的核心优势（技能、项目经验、数据成果）
+2. 基于提取的核心优势，生成一段精准匹配的打招呼话术（1-3句）
+
+要求：
+- 话术要自然真诚，像真人打招呼，不要模板感
+- 突出简历中与JD最匹配的1-2个亮点
+- 不要过度推销，语气自信但不傲慢
+- 只输出最终话术文本，不要JSON，不要解释，不要分步骤`;
+
+    const userPrompt = `
+【求职者简历】：
+"""${resume || "（未提供简历）"}"""
+
+【目标职位】：
+招聘者：${hrName} (${bossTitle})
+职位详情：
+"""${jobText}"""
+
+请先从简历中提取与该岗位最匹配的核心优势，然后生成一段精准的打招呼话术。`.trim();
+
+    const payload = {
+        model: model,
+        messages: [
+            { role: "system", content: sysPrompt },
+            { role: "user", content: userPrompt }
+        ],
+        temperature: 1.1
+    };
+
+    const controller = new AbortController();
+    if (tabId) {
+        activeRequests.set(tabId, controller);
+    }
+
+    try {
+        const url = endpoint.replace(/\/+$/, '') + '/chat/completions';
+        const response = await fetchWithRetry(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+            throw new Error(`LLM API Error: ${result.error.message || JSON.stringify(result.error)}`);
+        }
+
+        let content = result.choices[0].message.content || "";
+        content = content.replace(/```/g, '').trim();
+        sendResponse({ success: true, data: content });
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log("🛑 LLM Greeting Request Aborted");
+            sendResponse({ success: false, error: "用户已取消" });
+        } else {
+            console.error("LLM Greeting Call Failed:", error);
+            sendResponse({ success: false, error: error.message });
+        }
+    } finally {
+        if (tabId && activeRequests.has(tabId)) {
+            activeRequests.delete(tabId);
+        }
+    }
 }

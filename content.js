@@ -4327,6 +4327,125 @@ function bindSmartOpenerEvents() {
     });
 }
 
+// ================= 辅助函数：绑定简历匹配打招呼事件 =================
+function bindLlmPolishEvents(jobData) {
+    const polishBtn = document.getElementById('btn-llm-polish');
+    const saveConfigBtn = document.getElementById('btn-save-llm-config');
+    const statusDiv = document.getElementById('llm-status');
+    const resumeInput = document.getElementById('llm-resume-input');
+    const currentModelEl = document.getElementById('llm-current-model');
+
+    if (!polishBtn) return;
+
+    // 默认配置 (小米 mimo，写死)
+    const DEFAULT_ENDPOINT = 'https://token-plan-cn.xiaomimimo.com/v1';
+    const DEFAULT_MODEL = 'mimo-v2.5-pro';
+    const DEFAULT_KEY = 'tp-czq97wj2vol05hpfipuico337yuvk7tbo8ikslu5yh8vjnlb';
+
+    // 加载配置和简历草稿
+    chrome.storage.local.get(['greetingLlmConfig', 'llmResumeDraft'], (data) => {
+        const config = data.greetingLlmConfig || {};
+        const endpoint = config.endpoint || DEFAULT_ENDPOINT;
+        const model = config.model || DEFAULT_MODEL;
+        const apiKey = config.apiKey || DEFAULT_KEY;
+
+        document.getElementById('llm-endpoint').value = endpoint;
+        document.getElementById('llm-model-name').value = model;
+        document.getElementById('llm-api-key').value = apiKey;
+
+        if (currentModelEl) {
+            currentModelEl.innerText = `模型: ${model}`;
+        }
+
+        if (data.llmResumeDraft && resumeInput) {
+            resumeInput.value = data.llmResumeDraft;
+        }
+    });
+
+    // 保存配置
+    if (saveConfigBtn) {
+        saveConfigBtn.addEventListener('click', () => {
+            const endpoint = document.getElementById('llm-endpoint').value.trim();
+            const model = document.getElementById('llm-model-name').value.trim();
+            const apiKey = document.getElementById('llm-api-key').value.trim();
+
+            chrome.storage.local.set({
+                greetingLlmConfig: { endpoint, model, apiKey }
+            });
+            if (currentModelEl) {
+                currentModelEl.innerText = `模型: ${model}`;
+            }
+            showToast("模型配置已保存");
+        });
+    }
+
+    // 自动保存简历草稿
+    if (resumeInput) {
+        resumeInput.addEventListener('input', () => {
+            chrome.storage.local.set({ llmResumeDraft: resumeInput.value });
+        });
+    }
+
+    // 匹配生成按钮 - 提取简历核心 + 匹配 JD → 自动填入打招呼输入框
+    polishBtn.addEventListener('click', async () => {
+        const resume = resumeInput ? resumeInput.value.trim() : '';
+        if (!resume) {
+            showToast("请先粘贴你的简历");
+            return;
+        }
+
+        const currentJobData = jobData || (window.lastGlimmerData ? window.lastGlimmerData.jobData : null);
+        if (!currentJobData) {
+            showToast("未获取到岗位信息，请先点击职位卡片");
+            return;
+        }
+
+        polishBtn.disabled = true;
+        polishBtn.innerText = "⏳ 生成中...";
+        statusDiv.innerText = "AI 正在提取简历核心并匹配 JD...";
+        statusDiv.style.color = "#7c4dff";
+
+        try {
+            const jobText = currentJobData.text || currentJobData.description || '';
+            const hrName = currentJobData.hr || '招聘者';
+            const bossTitle = currentJobData.hrTitle || '';
+
+            const res = await chrome.runtime.sendMessage({
+                action: "generate_greeting_llm",
+                jobText: jobText.substring(0, 2900),
+                hrName: hrName,
+                bossTitle: bossTitle,
+                resume: resume
+            });
+
+            if (res && res.success && res.data) {
+                const greetingText = res.data;
+                // 自动填入打招呼输入框
+                const chatInput = document.getElementById('ai-chat-input');
+                if (chatInput) {
+                    chatInput.value = greetingText;
+                    chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    statusDiv.innerText = "已填入打招呼输入框，可直接发送";
+                    statusDiv.style.color = "#00c853";
+                } else {
+                    statusDiv.innerText = "生成完成（未找到打招呼输入框）";
+                    statusDiv.style.color = "#ff9800";
+                }
+            } else {
+                const msg = (res && res.error) ? res.error : "未知错误";
+                statusDiv.innerText = "生成失败: " + msg;
+                statusDiv.style.color = "#f44336";
+            }
+        } catch (e) {
+            statusDiv.innerText = "请求异常: " + e.message;
+            statusDiv.style.color = "#f44336";
+        } finally {
+            polishBtn.disabled = false;
+            polishBtn.innerText = "🎯 匹配生成";
+        }
+    });
+}
+
 function renderFullReport(jobData, aiData) {
     // Cache the latest analysis for one-click greeting
     window.lastGlimmerData = { jobData, aiData };
@@ -5769,6 +5888,36 @@ function renderFullReport(jobData, aiData) {
         extraHtml += renderCard('Smart Opener (开场三板斧)', '🗝️', cardHtml, '#009688');
     }
 
+    // === 8. AI 润色打招呼 (LLM Polish) ===
+    const llmPolishHtml = `
+        <div style="margin-bottom:8px;">
+            <div style="font-size:11px; color:#546e7a; margin-bottom:6px; font-weight:600;">📝 粘贴简历，AI 提取核心优势并匹配 JD</div>
+            <textarea id="llm-resume-input" placeholder="粘贴你的完整简历，AI 会自动提取与该岗位匹配的核心优势，生成精准打招呼话术..."
+                style="width:100%; height:100px; padding:8px; border:1px solid #e0e0e0; border-radius:6px; font-size:11px; resize:vertical; box-sizing:border-box; font-family:inherit; line-height:1.5;"></textarea>
+        </div>
+        <details style="margin-bottom:8px;">
+            <summary style="font-size:10px; color:#90a4ae; cursor:pointer; user-select:none;">⚙️ 切换模型（默认小米 mimo）</summary>
+            <div style="padding:8px; background:#f5f5f5; border-radius:6px; margin-top:6px;">
+                <div style="margin-bottom:6px;">
+                    <input id="llm-endpoint" placeholder="API 地址" style="width:100%; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; font-size:10px; box-sizing:border-box;" />
+                </div>
+                <div style="display:flex; gap:6px; margin-bottom:6px;">
+                    <input id="llm-model-name" placeholder="模型名" style="flex:1; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; font-size:10px; box-sizing:border-box;" />
+                    <input id="llm-api-key" type="password" placeholder="API Key" style="flex:1; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; font-size:10px; box-sizing:border-box;" />
+                </div>
+                <button id="btn-save-llm-config" style="padding:4px 10px; background:#00bebd; color:#fff; border:none; border-radius:4px; font-size:10px; cursor:pointer;">保存配置</button>
+            </div>
+        </details>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <div style="flex:1; font-size:10px; color:#999;" id="llm-current-model">模型: mimo-v2.5-pro</div>
+            <button id="btn-llm-polish" style="padding:6px 14px; background:linear-gradient(135deg,#7c4dff,#651fff); color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; box-shadow:0 2px 8px rgba(124,77,255,0.3); transition:all 0.2s; white-space:nowrap;">
+                🎯 匹配生成
+            </button>
+        </div>
+        <div id="llm-status" style="font-size:10px; color:#999; min-height:14px; margin-top:4px;"></div>
+    `;
+    extraHtml += renderCard('简历匹配打招呼', '🎯', llmPolishHtml, '#7c4dff');
+
     extraHtml += `</div>`;
 
     // 替换 pain-box 内容
@@ -5783,6 +5932,9 @@ function renderFullReport(jobData, aiData) {
         
         // 绑定事件 (Smart Opener)
         bindSmartOpenerEvents();
+
+        // 绑定事件 (LLM Polish)
+        bindLlmPolishEvents(jobData);
     }
     
     // === 新增：页面底部的免责声明 ===
