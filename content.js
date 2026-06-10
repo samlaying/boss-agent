@@ -646,29 +646,91 @@ function initWrapper() {
       
       <div class="panel-body" style="padding:15px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:var(--bg-primary);">
 
+          <!-- 晨曦寄语 (Daily Spark) -->
+          <div id="daily-spark-container" style="background:linear-gradient(to right, #fff1eb, #ace0f9); border-radius:8px; padding:10px 15px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.5); box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer; transition:all 0.3s ease; user-select:none;" title="点击切换每日寄语">
+              <div style="display:flex; align-items:flex-start; gap:10px;">
+                  <span style="font-size:16px; filter:grayscale(0.2);">🌿</span>
+                  <div style="flex:1;">
+                      <div id="daily-spark-text" style="font-family:-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size:13px; color:#37474f; line-height:1.6; font-weight:500; transition:opacity 0.2s ease;">
+                          加载治愈能量...
+                      </div>
+                  </div>
+              </div>
+          </div>
+
           <!-- 上部：雷达与身份 -->
           <div class="section-radar" style="background:#fff; padding:12px; border-radius:var(--radius-md); box-shadow:var(--shadow-sm); border:1px solid var(--border-light);">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                   <div style="font-size:10px; color:var(--text-secondary); font-weight:bold;">📡 正在扫描 (CURRENT)</div>
                   <div id="radar-status" style="font-size:10px; color:var(--text-light);">系统就绪</div>
               </div>
-              
+
               <!-- 身份信息区 -->
               <div id="radar-content" style="font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:8px; min-height:18px;">请点击左侧职位...</div>
-              
+
               <!-- 雷达图可视区 -->
               <div id="radar-chart-visual" style="width:100%; height:180px; display:none; justify-content:center; align-items:center; margin-top:5px;">
                   <!-- SVG 将被注入这里 -->
               </div>
           </div>
 
-          <!-- 底部：链接作者 (Removed) -->
+          <!-- 报告内容区 -->
+          <div id="report-content" style="display:none; background:#fff; padding:15px; border-radius:var(--radius-md); box-shadow:var(--shadow-sm); border:1px solid var(--border-light);">
+
+              <!-- 简版身份条 -->
+              <div id="ui-report-identity" style="font-size:11px; color:var(--text-secondary); background:var(--bg-primary); padding:8px; border-radius:var(--radius-sm); margin-bottom:15px; border-left:3px solid var(--primary-color); display:flex; align-items:center;">--</div>
+
+              <!-- 核心审计台 -->
+              <div id="report-score-section" style="background:#fff; border:1px solid var(--border-light); border-radius:var(--radius-md); padding:15px; margin-bottom:15px; box-shadow:var(--shadow-sm); position:relative; overflow:hidden;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px dashed rgba(0,0,0,0.05);">
+                       <div style="font-size:11px; color:var(--text-secondary); font-weight:800; display:flex; align-items:center; gap:6px;">
+                           <span>🎯</span> 核心匹配度 (MATCH SCORE)
+                       </div>
+                       <div id="res-verdict" style="font-size:10px; padding:2px 8px; border-radius:10px; color:#fff; font-weight:bold; background:var(--text-light);">PENDING</div>
+                  </div>
+                  <div style="display:flex; align-items:stretch;">
+                      <div style="flex:0 0 200px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-right:1px dashed rgba(0,0,0,0.05); padding-right:15px; margin-right:15px;">
+                           <div id="score-container" style="width:110px; height:110px; border-radius:50%; border:5px solid var(--text-light); display:flex; flex-direction:column; align-items:center; justify-content:center; background:#fff; box-shadow:0 6px 15px rgba(0,0,0,0.08); position:relative; cursor:help; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                               <div id="res-score" style="font-size:42px; font-weight:800; line-height:1; color:var(--text-primary); letter-spacing:-2px;">--</div>
+                               <div style="font-size:10px; color:#90a4ae; margin-top:4px; font-weight:500;">AI 预测</div>
+                           </div>
+                      </div>
+                      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
+                           <div id="res-reason" style="font-size:13px; color:var(--text-secondary); line-height:1.6; font-weight:500; text-align:justify;">等待分析...</div>
+                           <div id="summary-gap-container" style="display:none; margin-top:8px;"></div>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- 优势与风险 -->
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+                  <div style="background:rgba(0,200,83,0.05); padding:10px; border-radius:var(--radius-sm); border:1px solid rgba(0,200,83,0.1);">
+                      <strong style="font-size:11px; color:var(--success-color); display:block; margin-bottom:6px;">✅ 核心优势</strong>
+                      <ul id="list-pros" class="detail-list" style="padding-left:0; list-style:none;"></ul>
+                  </div>
+                  <div style="background:rgba(244,67,54,0.05); padding:10px; border-radius:var(--radius-sm); border:1px solid rgba(244,67,54,0.1);">
+                      <strong style="font-size:11px; color:var(--error-color); display:block; margin-bottom:6px;">❌ 潜在风险</strong>
+                      <ul id="list-cons" class="detail-list" style="padding-left:0; list-style:none;"></ul>
+                  </div>
+              </div>
+
+              <!-- 痛点、押题 -->
+              <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">
+                  <div id="pain-box" style="background:#fff8e1; color:#e65100; border:1px solid #ffe0b2; padding:10px; border-radius:var(--radius-sm); font-size:12px; line-height:1.4;">🎸 痛点加载中...</div>
+                  <div id="focus-box" style="background:#f3e5f5; color:#7b1fa2; border:1px solid #e1bee7; padding:10px; border-radius:var(--radius-sm); font-size:12px; line-height:1.4;">💣 押题加载中...</div>
+              </div>
+          </div>
 
       </div>
       
       <!-- 底部按钮区 -->
       <div class="panel-footer" style="padding:15px; background:#fff; border-top:1px solid var(--border-light); border-radius:0 0 12px 12px;">
           <div style="display:flex; gap:10px;">
+              <button id="btn-analyze" style="flex:1; padding:8px; background:linear-gradient(135deg, #4fc3f7, #0288d1); color:#fff; border:none; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 4px 10px rgba(2,136,209,0.3); transition:transform 0.1s;">⚡ 深度剖析</button>
+              <button id="btn-scan" style="flex:1; padding:8px; background:#fff; color:#e65100; border:1px solid #ffe0b2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">批量巡检(慎用)</button>
+              <button id="btn-capture" style="flex:1; padding:8px; background:#fff; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">📷 截图报告</button>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:8px;">
               <button id="btn-auto-loop" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🔁 自动沟通循环</button>
               <button id="btn-stop-auto-loop" style="flex:1; padding:8px; background:#fff; color:#e53935; border:1px solid #ffcdd2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🛑 停止自动循环</button>
           </div>
@@ -678,6 +740,10 @@ function initWrapper() {
           </div>
           <div style="display:flex; gap:8px; margin-top:8px;">
               <button id="btn-config-remote-log" style="flex:1; padding:8px; background:#fff; color:#37474f; border:1px solid #cfd8dc; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">☁️ 云端日志</button>
+          </div>
+          <div style="text-align:right; margin-top:10px; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+              <button id="btn-auto-apply" style="display:none; padding:6px 12px; border:none; color:#fff; background:linear-gradient(90deg, #00bebd, #00a0a0); border-radius:20px; font-size:12px; cursor:pointer; font-weight:700;">⚡ 一键招呼</button>
+              <button id="btn-ignore" style="display:none; padding:6px 12px; border:1px solid var(--error-color); color:var(--error-color); background:#fff; border-radius:20px; font-size:12px; cursor:pointer; font-weight:500;">🚫 不感兴趣</button>
           </div>
       </div>
 
