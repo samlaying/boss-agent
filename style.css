@@ -5,11 +5,8 @@
  * Design: Modern, Clean, Professional (Restored)
  */
 
-/* 强制重置：确保高度自适应，去除空白 */
-html {
-  height: auto !important;
-  min-height: auto !important;
-}
+/* 强制重置：确保高度自适应，去除空白 - 仅在扩展内部生效 */
+/* 注意：这些样式不再影响宿主页面的 html/body */
 
 :root {
   --primary-color: #00bebd;
@@ -56,19 +53,8 @@ html {
   }
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: var(--font-sm);
-  overflow-x: hidden; /* 防止横向滚动条 */
-  height: fit-content !important; /* 强制：高度随内容而定 */
-  min-height: auto !important;
-  max-height: 600px; /* 可选：防止内容太多时超出屏幕 */
-  overflow-y: auto; /* 内容过多时才滚动 */
-}
+/* 注意：body 样式已移除，避免影响宿主页面布局
+   这些样式仅适用于扩展自身的 popup.html 页面 */
 
 /* 主容器 */
 .main-container {
@@ -620,21 +606,6 @@ textarea {
   height: 0 !important;
 }
 
-/* 确保所有可能的隐藏元素不占用空间 */
-[style*="display: none"] {
-  position: static !important;
-  height: 0 !important;
-  width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* 防止任何元素的min-height撑开页面 */
-* {
-  min-height: 0 !important;
-}
-
-/* 允许必要的元素有min-height */
-body, html, .main-container, .card, textarea, input {
-  min-height: auto !important;
-}
+/* 注意：通配符选择器 * { min-height: 0 !important; } 和
+   [style*="display: none"] 选择器已移除，
+   避免影响宿主页面的布局。这些样式仅在扩展 popup 中使用。 */
