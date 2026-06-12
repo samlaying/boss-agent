@@ -5,13 +5,14 @@
  * Design: Modern, Clean, Professional (Restored)
  */
 
-/* 强制重置：确保高度自适应，去除空白 */
-html {
+/* 强制重置：仅作用于扩展 popup，避免污染 Boss 原页面 */
+html:has(body.weiguang-popup) {
   height: auto !important;
   min-height: auto !important;
 }
 
-:root {
+body.weiguang-popup,
+#boss-copilot-panel {
   --primary-color: #00bebd;
   --primary-dark: #008988;
   --text-primary: #333333;
@@ -56,7 +57,7 @@ html {
   }
 }
 
-body {
+body.weiguang-popup {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -71,7 +72,7 @@ body {
 }
 
 /* 主容器 */
-.main-container {
+body.weiguang-popup .main-container {
   width: 360px;
   padding: var(--space-lg);
   box-sizing: border-box;
@@ -81,7 +82,7 @@ body {
 }
 
 /* 标题栏 */
-.header {
+body.weiguang-popup .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -90,7 +91,7 @@ body {
   border-bottom: 1px solid var(--border-color);
 }
 
-.header h3 {
+body.weiguang-popup .header h3 {
   margin: 0;
   font-size: 18px;
   color: var(--primary-color);
@@ -98,7 +99,7 @@ body {
   letter-spacing: -0.5px;
 }
 
-.version {
+body.weiguang-popup .version {
   font-size: 10px;
   background: var(--warning-color);
   color: white;
@@ -110,7 +111,7 @@ body {
 }
 
 /* 卡片通用样式 */
-.card {
+body.weiguang-popup .card {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: var(--space-lg);
@@ -120,11 +121,11 @@ body {
   transition: box-shadow 0.2s;
 }
 
-.card:hover {
+body.weiguang-popup .card:hover {
   box-shadow: var(--shadow-md);
 }
 
-.card-title {
+body.weiguang-popup .card-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
@@ -135,10 +136,10 @@ body {
 }
 
 /* 输入框通用样式 */
-input[type="text"],
-input[type="password"],
-input[type="number"],
-textarea {
+body.weiguang-popup input[type="text"],
+body.weiguang-popup input[type="password"],
+body.weiguang-popup input[type="number"],
+body.weiguang-popup textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 10px;
@@ -152,27 +153,27 @@ textarea {
   font-family: inherit;
 }
 
-input:focus,
-textarea:focus {
+body.weiguang-popup input:focus,
+body.weiguang-popup textarea:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(0, 190, 189, 0.1);
   outline: none;
 }
 
-textarea {
+body.weiguang-popup textarea {
   resize: vertical;
   min-height: 80px;
 }
 
 /* 简历输入框特别加高 */
-#resume {
+body.weiguang-popup #resume {
   min-height: 120px;
   font-size: 12px;
   color: var(--text-secondary);
 }
 
 /* 标签样式 */
-label {
+body.weiguang-popup label {
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
@@ -181,20 +182,21 @@ label {
 }
 
 /* 提示信息 */
-.tip, .char-count {
+body.weiguang-popup .tip,
+body.weiguang-popup .char-count {
   font-size: 11px;
   color: var(--text-light);
   margin-top: 4px;
   text-align: right;
 }
 
-.tip a {
+body.weiguang-popup .tip a {
   color: var(--primary-color);
   text-decoration: none;
 }
 
 /* 魔法按钮 */
-.magic-button {
+body.weiguang-popup .magic-button {
   width: 100%;
   padding: 10px;
   background: linear-gradient(135deg, #00bebd 0%, #008988 100%);
@@ -209,17 +211,17 @@ label {
   margin-top: 10px;
 }
 
-.magic-button:hover {
+body.weiguang-popup .magic-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0, 190, 189, 0.4);
 }
 
-.magic-button:active {
+body.weiguang-popup .magic-button:active {
   transform: translateY(0);
 }
 
 /* 隐私提示 */
-.privacy-tip {
+body.weiguang-popup .privacy-tip {
   margin-top: 12px;
   font-size: 11px;
   color: var(--text-light);
@@ -232,7 +234,7 @@ label {
 }
 
 /* 底部保存按钮 */
-.save-btn {
+body.weiguang-popup .save-btn {
   width: 100%;
   padding: 12px;
   background: #333;
@@ -245,12 +247,12 @@ label {
   margin-top: 10px;
 }
 
-.save-btn:hover {
+body.weiguang-popup .save-btn:hover {
   background: #000;
 }
 
 /* ================= 模态框样式 (Restored) ================= */
-.modal-overlay {
+body.weiguang-popup .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -264,7 +266,7 @@ label {
   backdrop-filter: blur(2px);
 }
 
-.modal-content {
+body.weiguang-popup .modal-content {
   background: white;
   width: 90%;
   max-width: 320px;
@@ -278,7 +280,7 @@ label {
   color: var(--text-primary);
 }
 
-.modal-title {
+body.weiguang-popup .modal-title {
   margin: 0 0 15px 0;
   font-size: 16px;
   font-weight: 700;
@@ -286,7 +288,7 @@ label {
   text-align: center;
 }
 
-.progress-container {
+body.weiguang-popup .progress-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -294,7 +296,7 @@ label {
   padding: 0 10px;
 }
 
-.step-item {
+body.weiguang-popup .step-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -303,7 +305,7 @@ label {
   color: var(--text-light);
 }
 
-.step-icon {
+body.weiguang-popup .step-icon {
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -316,17 +318,17 @@ label {
   font-size: 12px;
 }
 
-.step-active .step-icon {
+body.weiguang-popup .step-active .step-icon {
   background: var(--primary-color);
   color: white;
 }
 
-.step-active span {
+body.weiguang-popup .step-active span {
   color: var(--primary-color);
   font-weight: bold;
 }
 
-.step-line {
+body.weiguang-popup .step-line {
   flex: 1;
   height: 2px;
   background: #eee;
@@ -334,7 +336,7 @@ label {
   margin-bottom: 15px; /* 对齐图标中心 */
 }
 
-.status-text {
+body.weiguang-popup .status-text {
   text-align: center;
   font-size: 13px;
   color: var(--text-secondary);
@@ -344,7 +346,7 @@ label {
 }
 
 /* 结果预览区 */
-.preview-box {
+body.weiguang-popup .preview-box {
   background: #f8f9fa;
   padding: 10px;
   border-radius: var(--radius-sm);
@@ -358,12 +360,13 @@ label {
   white-space: pre-wrap;
 }
 
-.modal-actions {
+body.weiguang-popup .modal-actions {
   display: flex;
   gap: 10px;
 }
 
-.btn-primary, .btn-secondary {
+body.weiguang-popup .btn-primary,
+body.weiguang-popup .btn-secondary {
   flex: 1;
   padding: 10px;
   border-radius: var(--radius-md);
@@ -373,40 +376,40 @@ label {
   font-weight: 600;
 }
 
-.btn-primary {
+body.weiguang-popup .btn-primary {
   background: var(--primary-color);
   color: white;
 }
 
-.btn-primary:hover {
+body.weiguang-popup .btn-primary:hover {
   background: var(--primary-dark);
 }
 
-.btn-secondary {
+body.weiguang-popup .btn-secondary {
   background: #f5f5f5;
   color: var(--text-secondary);
 }
 
-.btn-secondary:hover {
+body.weiguang-popup .btn-secondary:hover {
   background: #e0e0e0;
 }
 
 /* 底部版权 */
-.footer-actions {
+body.weiguang-popup .footer-actions {
   margin-top: 10px;
   text-align: center;
   position: relative; /* 确保不是绝对定位 */
   width: 100%;
 }
 
-#status {
+body.weiguang-popup #status {
   margin-top: 8px;
   font-size: 12px;
   min-height: 18px;
 }
 
 /* 开关样式 */
-.switch-row {
+body.weiguang-popup .switch-row {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
@@ -414,7 +417,7 @@ label {
   color: var(--text-secondary);
 }
 
-.switch {
+body.weiguang-popup .switch {
   position: relative;
   display: inline-block;
   width: 32px;
@@ -422,13 +425,13 @@ label {
   margin-right: 8px;
 }
 
-.switch input {
+body.weiguang-popup .switch input {
   opacity: 0;
   width: 0;
   height: 0;
 }
 
-.slider {
+body.weiguang-popup .slider {
   position: absolute;
   cursor: pointer;
   top: 0;
@@ -440,7 +443,7 @@ label {
   border-radius: 34px;
 }
 
-.slider:before {
+body.weiguang-popup .slider:before {
   position: absolute;
   content: "";
   height: 14px;
@@ -452,20 +455,20 @@ label {
   border-radius: 50%;
 }
 
-input:checked + .slider {
+body.weiguang-popup input:checked + .slider {
   background-color: var(--primary-color);
 }
 
-input:focus + .slider {
+body.weiguang-popup input:focus + .slider {
   box-shadow: 0 0 1px var(--primary-color);
 }
 
-input:checked + .slider:before {
+body.weiguang-popup input:checked + .slider:before {
   transform: translateX(14px);
 }
 
 /* 高级配置详情 */
-details.advanced-details {
+body.weiguang-popup details.advanced-details {
   background: #fff;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
@@ -473,7 +476,7 @@ details.advanced-details {
   margin-bottom: var(--space-lg);
 }
 
-summary {
+body.weiguang-popup summary {
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -481,19 +484,19 @@ summary {
   outline: none;
 }
 
-.details-content {
+body.weiguang-popup .details-content {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px dashed var(--border-light);
 }
 
-.code-font {
+body.weiguang-popup .code-font {
   font-family: "Consolas", "Monaco", monospace;
   font-size: 11px;
 }
 
 /* 关键词标签可视化 */
-.keyword-arsenal-visual {
+body.weiguang-popup .keyword-arsenal-visual {
     margin-top: 15px;
     padding: 10px;
     background: #f8f9fa;
@@ -501,20 +504,20 @@ summary {
     border-radius: 4px;
 }
 
-.arsenal-title {
+body.weiguang-popup .arsenal-title {
     font-size: 11px;
     color: #6c757d;
     margin-bottom: 8px;
     font-weight: bold;
 }
 
-#keywordTagsContainer {
+body.weiguang-popup #keywordTagsContainer {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 }
 
-.keyword-tag {
+body.weiguang-popup .keyword-tag {
     display: inline-flex;
     align-items: center;
     padding: 2px 8px;
@@ -527,24 +530,24 @@ summary {
     transition: all 0.2s;
 }
 
-.keyword-tag:hover {
+body.weiguang-popup .keyword-tag:hover {
     background: #bbdefb;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.keyword-tag:active {
+body.weiguang-popup .keyword-tag:active {
     transform: translateY(0);
 }
 
-.keyword-tag.copied {
+body.weiguang-popup .keyword-tag.copied {
     background: #c8e6c9;
     color: #2e7d32;
     border-color: #a5d6a7;
 }
 
 /* 只读简历输入框样式 */
-#resume[readonly] {
+body.weiguang-popup #resume[readonly] {
     background-color: #f5f5f5;
     cursor: not-allowed;
     color: #555;
@@ -554,20 +557,20 @@ summary {
 /* 注意：这些规则仅作用于 .main-container 内，避免影响 Boss 页面布局 */
 
 /* 1. 确保所有卡片容器不自动撑开高度 */
-.main-container .card {
+body.weiguang-popup .main-container .card {
   flex: 0 0 auto !important;
   height: auto !important;
 }
 
 /* 2. 确保底部按钮紧跟内容，不贴底部 */
-.main-container .footer-actions {
+body.weiguang-popup .main-container .footer-actions {
   position: static !important;
   margin-top: 16px !important;
   padding-bottom: 16px;
 }
 
 /* 3. 针对可能的modal弹窗 */
-.main-container .modal-content {
+body.weiguang-popup .main-container .modal-content {
   flex: 0 0 auto !important;
   height: auto !important;
   max-height: 90vh;
@@ -575,24 +578,24 @@ summary {
 }
 
 /* 4. 针对内容区域 */
-#aiConfigModal {
+body.weiguang-popup #aiConfigModal {
   height: fit-content !important;
 }
 
 /* 5. 确保textarea不会撑得太高 */
-.main-container textarea {
+body.weiguang-popup .main-container textarea {
   max-height: 200px !important;
   overflow-y: auto !important;
 }
 
-#resume {
+body.weiguang-popup #resume {
   max-height: 150px !important;
 }
 
 /* ========== 彻底修复弹窗空白问题 ========== */
 
 /* 强制隐藏所有modal，确保不占据任何空间 */
-.modal-overlay {
+body.weiguang-popup .modal-overlay {
   display: none !important;
   position: static !important;
   height: 0 !important;
@@ -601,7 +604,7 @@ summary {
 }
 
 /* 当modal真正需要显示时，通过JS移除hidden类来激活 */
-.modal-overlay.active {
+body.weiguang-popup .modal-overlay.active {
   display: flex !important;
   position: fixed !important;
   height: 100vh !important;
@@ -609,13 +612,13 @@ summary {
 }
 
 /* 隐藏AI配置modal的特定样式 */
-#aiConfigModal {
+body.weiguang-popup #aiConfigModal {
   display: none !important;
   position: static !important;
   height: 0 !important;
 }
 
-#localAuthorModal {
+body.weiguang-popup #localAuthorModal {
   display: none !important;
   position: static !important;
   height: 0 !important;
