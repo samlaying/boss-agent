@@ -192,10 +192,7 @@ boss-agent/
 
 ### API 配置
 
-支持两种方式使用 AI 分析功能：
-
-1. **自带 Key**：在设置中填入你的 [DeepSeek API Key](https://platform.deepseek.com/)
-2. **免费额度**：使用内置的「能量站」免费额度（有限制）
+在设置中填入你的 [DeepSeek API Key](https://platform.deepseek.com/) 即可使用 AI 分析功能。
 
 ### 首次使用配置向导
 
