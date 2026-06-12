@@ -1,7 +1,7 @@
 // popup.js - 终极修复版 (前端交互与错误处理)
 
 // 预设 DeepSeek API Key
-const DEFAULT_API_KEY = 'sk-92c0ecec04be4940b50a6123ed34e7ac';
+const DEFAULT_API_KEY = 'sk-8af6f056aabf4e69aedffdd483b5c8b5';
 
 // 预设简历模板（林承列）
 const DEFAULT_RESUME = `个人简历

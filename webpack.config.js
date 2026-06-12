@@ -64,13 +64,18 @@ module.exports = (env, argv) => {
       }),
       new CopyWebpackPlugin({
         patterns: [
-          { from: 'manifest.json', to: 'manifest.json' },
+          { from: 'src/manifest.json', to: 'manifest.json' },
           { from: 'public', to: 'public', noErrorOnMissing: true },
+          { from: 'style.css', to: 'style.css' },
           { from: 'variant.js', to: 'variant.js' },
           { from: 'injected_probe.js', to: 'injected_probe.js' },
           { from: 'spa_monitor.js', to: 'spa_monitor.js' },
           { from: 'html2canvas.min.js', to: 'html2canvas.min.js' },
           { from: 'images', to: 'images', noErrorOnMissing: true },
+          {
+            from: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
+            to: 'pdf.worker.min.mjs',
+          },
         ],
       }),
     ],
@@ -86,7 +91,7 @@ module.exports = (env, argv) => {
       minimize: isProduction,
       minimizer: [new TerserPlugin()],
       splitChunks: {
-        chunks: 'all',
+        chunks: 'async',
       },
     },
   };

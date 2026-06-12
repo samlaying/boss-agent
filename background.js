@@ -832,7 +832,7 @@ async function handleDirectConfigGen(apiKey, resume, sendResponse) {
         
         // 2. 调用 API
         const payload = {
-            model: "deepseek-chat",
+            model: "deepseek-v4-flash",
             messages: [{ role: "user", content: prompt }],
             temperature: 1.1,
             response_format: { type: "json_object" }
@@ -938,7 +938,7 @@ async function handleDirectCall(apiKey, systemPrompt, resume, jobText, hrName, b
     const userPrompt = constructAnalyzeUserPrompt(resume, jobText, hrName, bossTitle);
 
     const payload = {
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         messages: [
             { role: "system", content: sysPrompt },
             { role: "user", content: userPrompt }
@@ -1072,7 +1072,7 @@ async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobTex
     const userPrompt = constructGreetingUserPrompt(resume, jobText, hrName, bossTitle);
 
     const payload = {
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         messages: [
             { role: "system", content: sysPrompt },
             { role: "user", content: userPrompt }

@@ -1,0 +1,39 @@
+{
+  "packetVersion": "1.0",
+  "runRef": "run-1781266251167",
+  "profile": "default",
+  "profileKey": "default-auto",
+  "createdAt": "2026-06-12T12:10:51.169Z",
+  "stageState": {
+    "current": "Review",
+    "completed": [
+      "Critical",
+      "Fetch",
+      "Thinking",
+      "Execution",
+      "Review"
+    ],
+    "resumeFrom": "Review",
+    "stepNumber": 5
+  },
+  "openFindings": [],
+  "pendingRevisions": [],
+  "verifyGateState": "verified",
+  "singleDeliverableState": {
+    "currentDeliverable": "governed-run",
+    "closed": false
+  },
+  "summaryDelta": {
+    "written": false,
+    "content": null
+  },
+  "writebackDecision": {
+    "decision": "none",
+    "targets": [],
+    "continuityOnly": true,
+    "continuityTarget": "local-compaction",
+    "content": "No open findings captured. Compaction packet is local continuity only and is not an Evolution writeback."
+  },
+  "accepted_risk": null,
+  "handoffNote": "Auto-compaction from Stop hook. Stage=Review(5/8), findings=0. Auto-generated at session end. Resume from Review stage."
+}

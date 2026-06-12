@@ -27,6 +27,10 @@
     {
       "resources": ["style.css", "injected_probe.js", "spa_monitor.js", "images/*"],
       "matches": ["https://*.zhipin.com/*"]
+    },
+    {
+      "resources": ["pdf.worker.min.mjs"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

@@ -1,4 +1,6 @@
 import { MESSAGE_TYPES } from '../utils/constants.js';
+import { storageGet, storageSet } from '../utils/storage.js';
+import { extractResume, analyzeMatch } from './handlers/ai.js';
 
 export function handleMessage(message, sender) {
   switch (message.type) {
@@ -10,22 +12,15 @@ export function handleMessage(message, sender) {
       console.log('Content ready on tab:', sender.tab?.id);
       return { acknowledged: true };
     case MESSAGE_TYPES.STORAGE_GET:
-      return handleStorageGet(message.payload);
+      return storageGet(message.payload?.keys ?? null);
     case MESSAGE_TYPES.STORAGE_SET:
-      return handleStorageSet(message.payload);
+      return storageSet(message.payload).then(() => ({ success: true }));
+    case MESSAGE_TYPES.EXTRACT_RESUME:
+      return extractResume(message.payload, sender);
+    case MESSAGE_TYPES.ANALYZE_MATCH:
+      return analyzeMatch(message.payload, sender);
     default:
       console.warn('Unknown message type:', message.type);
       return { error: 'Unknown type: ' + message.type };
   }
-}
-
-async function handleStorageGet(payload) {
-  const { storageGet } = await import('../utils/storage.js');
-  return storageGet(payload?.keys ?? null);
-}
-
-async function handleStorageSet(payload) {
-  const { storageSet } = await import('../utils/storage.js');
-  await storageSet(payload);
-  return { success: true };
 }
