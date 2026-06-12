@@ -58,33 +58,148 @@
 
 ---
 
-## 🚀 快速开始
+## 🚀 安装和使用教程（新手必看）
 
-### 安装方式一：直接加载（开发者模式）
-
-1. 克隆本仓库
-   ```bash
-   git clone https://github.com/samlaying/boss-agent.git
-   cd boss-agent
-   ```
-
-2. 安装依赖并构建
-   ```bash
-   npm install
-   npm run build
-   ```
-
-3. 打开 Chrome，进入 `chrome://extensions/`
-4. 开启右上角 **「开发者模式」**
-5. 点击 **「加载已解压的扩展程序」** → 选择项目根目录（包含 `manifest.json`）
-
-### 安装方式二：使用构建产物
-
-直接下载 [dist/](./dist/) 目录，在 `chrome://extensions/` 中加载即可。
+> 从零开始，手把手教你安装和使用微光。跟着做就行！
 
 ---
 
-## 🛠️ 开发指南
+### 第一步：下载插件
+
+1. 点击本页面右上角的绿色 **「Code」** 按钮
+2. 选择 **「Download ZIP」** 下载压缩包
+3. 解压到你能找到的位置（比如桌面），记住这个文件夹的位置
+
+---
+
+### 第二步：开启 Chrome 开发者模式
+
+1. 打开 Chrome 浏览器
+2. 在地址栏输入 `chrome://extensions/` 然后回车
+3. 你会看到扩展程序管理页面
+4. 找到页面**右上角**的 **「开发者模式」** 开关，把它**打开**
+
+---
+
+### 第三步：导入插件
+
+1. 还是在 `chrome://extensions/` 页面
+2. 点击左上角的 **「加载已解压的扩展程序」** 按钮
+3. 在弹出的文件选择窗口中，选择你**刚才解压的文件夹**（就是包含 `manifest.json` 的那个文件夹）
+4. 点击 **「选择」**
+
+> ✅ 导入成功后，你会看到扩展列表里出现了「微光」插件，右上角扩展图标栏也会出现微光的图标。
+
+---
+
+### 第四步：获取 DeepSeek API Key（免费）
+
+微光的 AI 分析功能需要 DeepSeek 的 API Key，**新用户有免费额度**，够用很久。
+
+1. 打开 [DeepSeek 开放平台](https://platform.deepseek.com/) ，点击注册/登录
+2. 登录后，进入 **[API Keys 管理页面](https://platform.deepseek.com/api_keys)**
+3. 点击 **「创建 API Key」**
+4. 复制生成的 Key（格式类似 `sk-xxxxxxxxxx`，**只显示一次，记得保存好**）
+
+> 💡 不用担心费用，DeepSeek 的 API 价格非常便宜，日常使用几乎花不了几毛钱。
+
+---
+
+### 第五步：配置微光（首次使用向导）
+
+1. 点击 Chrome 右上角的 **拼图图标** 🧩（扩展管理按钮）
+2. 找到 **「微光」**，点击它打开弹窗
+3. 首次使用会自动进入 **配置向导**，按顺序完成以下步骤：
+
+#### ① 填入 API Key
+- 将刚才复制的 DeepSeek API Key 粘贴到输入框中
+- 点击下一步
+
+#### ② 上传你的简历
+三种方式任选其一：
+- **粘贴文本**：直接把简历文字粘贴到文本框里
+- **上传 PDF**：点击上传按钮，选择 PDF 格式的简历文件
+- **上传 Word**：点击上传按钮，选择 .docx 格式的简历文件
+
+> 💡 简历越详细，AI 分析的匹配度就越准确！
+
+#### ③ 选择功能
+- 根据需要勾选想要开启的功能，不知道选什么就全开
+
+#### ④ 完成配置
+- 点击完成，配置自动保存
+
+---
+
+### 第六步：开始使用！
+
+#### 方式一：分析单个职位
+
+1. 打开 [Boss直聘](https://www.zhipin.com/) ，登录你的账号
+2. 浏览职位列表，**点击进入**任意一个你感兴趣的职位详情页
+3. 你会看到页面上出现微光的 **悬浮按钮**（💡 灯泡图标）
+4. 点击它，选择 **「深度剖析」**
+5. 等待几秒，AI 会生成完整的分析报告，包括：
+   - 📊 岗位匹配度评分（0-100 分）
+   - ⚠️ 风险预警（是否为骗局/保险/培训贷）
+   - 💡 面试建议和准备方向
+   - ✅ 你的优势和不足
+
+#### 方式二：批量扫描职位列表
+
+1. 在 Boss直聘的**职位列表页**（不是详情页）
+2. 点击微光悬浮按钮，选择 **「开启巡航模式」**
+3. 微光会自动逐个扫描当前页面的所有职位
+4. 扫描完成后：
+   - 🟢 绿色边框的 = 高匹配，值得投
+   - ⚪ 灰色半透明的 = 低匹配，可以跳过
+5. 点击感兴趣的职位即可查看详细分析
+
+---
+
+### ❓ 常见问题
+
+<details>
+<summary><b>点击扩展图标没反应？</b></summary>
+
+检查一下你当前是不是在 Boss直聘（zhipin.com）的页面上。微光只在 Boss直聘 页面才能使用。
+</details>
+
+<details>
+<summary><b>提示 API Key 错误？</b></summary>
+
+1. 确认你复制的是完整的 Key（以 `sk-` 开头）
+2. 去DeepSeek 平台检查 Key 是否有效
+3. 确认账户里有余额（新用户有免费额度）
+</details>
+
+<details>
+<summary><b>分析很慢或没有结果？</b></summary>
+
+可能是网络问题，请检查：
+1. 网络连接是否正常
+2. DeepSeek 服务是否可用
+3. 刷新页面重试
+</details>
+
+<details>
+<summary><b>如何修改简历或 API Key？</b></summary>
+
+点击扩展图标打开弹窗 → 直接修改对应内容 → 自动保存。
+</details>
+
+<details>
+<summary><b>实验室模式是什么？能不能开？</b></summary>
+
+实验室模式可以探测隐藏薪资等深层信息，但有一定**封号风险**。建议谨慎使用，如果只是分析职位匹配度，不需要开启。
+</details>
+
+---
+
+## 🛠️ 开发者指南
+
+<details>
+<summary><b>点击展开开发者文档</b></summary>
 
 ### 环境要求
 
@@ -92,39 +207,37 @@
 - **Chrome** >= 110
 - **npm** >= 9
 
-### 常用命令
+### 从源码构建
 
 ```bash
-# 开发模式（监听文件变化，自动重新构建）
-npm run dev
+# 克隆仓库
+git clone https://github.com/samlaying/boss-agent.git
+cd boss-agent
+
+# 安装依赖
+npm install
 
 # 生产构建
 npm run build
-
-# 代码检查
-npm run lint
-
-# 自动修复代码风格
-npm run lint:fix
-
-# 格式化代码
-npm run format
-
-# 打包 zip
-npm run zip
 ```
 
-### 构建变体
+构建产物在 `dist/` 目录，直接加载到 Chrome 即可。
+
+### 常用命令
 
 ```bash
-npm run build:social    # 社招版
-npm run build:intern    # 实习生版
-npm run build:variants  # 构建所有变体
+npm run dev              # 开发模式（监听文件变化）
+npm run build            # 生产构建
+npm run build:social     # 社招版
+npm run build:intern     # 实习生版
+npm run build:variants   # 构建所有变体
+npm run lint             # 代码检查
+npm run lint:fix         # 自动修复
+npm run format           # 格式化
+npm run zip              # 打包 zip
 ```
 
----
-
-## 📁 项目结构
+### 项目结构
 
 ```
 boss-agent/
@@ -144,28 +257,19 @@ boss-agent/
     ├── background/         # Service Worker 消息路由
     ├── content/            # 内容脚本模块
     ├── popup/              # 弹窗界面 (Vue 3 + 组件)
-    │   ├── components/     # 通用组件 (WizardProgress, PingTest...)
-    │   ├── components/steps/  # 配置向导步骤组件
-    │   └── views/          # 页面视图
     ├── options/            # 设置页面 (Vue 3)
     ├── utils/              # 共享工具库
     ├── api/                # API 接口层
     └── components/         # 共享组件
 ```
 
----
-
-## 🏗️ 架构设计
-
-### 数据流
+### 架构设计
 
 ```
 用户操作 → Content Script → Service Worker → DeepSeek API
    ↑                                          ↓
    └─── UI 渲染 ←─── 结果返回 ←──────────────┘
 ```
-
-### 消息通信架构
 
 | 通信路径 | 方式 | 用途 |
 |---------|------|------|
@@ -186,22 +290,7 @@ boss-agent/
 | Mammoth.js | Word 简历解析 |
 | html2canvas | 页面截图 |
 
----
-
-## ⚙️ 配置说明
-
-### API 配置
-
-在设置中填入你的 [DeepSeek API Key](https://platform.deepseek.com/) 即可使用 AI 分析功能。
-
-### 首次使用配置向导
-
-首次打开弹窗会启动 4 步配置向导：
-
-1. **API Key 配置** — 填入 DeepSeek API Key 或使用免费额度
-2. **简历上传** — 粘贴文本 / 上传 PDF / 上传 Word
-3. **功能选择** — 按需开启各项功能
-4. **高级配置** — 扫描间隔、匹配阈值等参数微调
+</details>
 
 ---
 
