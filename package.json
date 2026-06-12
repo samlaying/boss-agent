@@ -1,8 +1,53 @@
 {
+  "name": "weiguang-extension",
+  "version": "3.0.14",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-variants.mjs",
+    "prepare": "husky",
+    "dev": "webpack --mode development --watch",
+    "build": "webpack --mode production",
+    "build:variants": "node scripts/build-variants.mjs",
     "build:social": "node scripts/build-variants.mjs social",
-    "build:intern": "node scripts/build-variants.mjs intern"
-  }
+    "build:dev": "webpack --mode development",
+    "build:intern": "node scripts/build-variants.mjs intern",
+    "zip": "cd dist && zip -r ../weiguang-extension.zip .",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/"
+  },
+  "lint-staged": {
+    "src/**/*.{js,vue}": [
+      "eslint --fix"
+    ]
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@eslint/js": "^10.0.1",
+    "@vue/compiler-sfc": "^3.5.35",
+    "babel-loader": "^9.2.1",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "eslint": "^10.4.1",
+    "eslint-plugin-vue": "^10.9.1",
+    "globals": "^17.6.0",
+    "html-webpack-plugin": "^5.6.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "mini-css-extract-plugin": "^2.10.2",
+    "prettier": "^3.8.3",
+    "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.6.1",
+    "vue-loader": "^17.4.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "vue": "^3.5.35"
+  },
+  "browserslist": [
+    "Chrome >= 110"
+  ]
 }
