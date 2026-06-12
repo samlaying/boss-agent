@@ -28,7 +28,7 @@ defineEmits(['open-settings']);
 
 <style scoped>
 .app-header {
-  padding: 8px 16px 4px;
+  padding: 12px 16px 8px;
   border-bottom: 1px solid rgba(0, 190, 189, 0.15);
 }
 .header-row {
