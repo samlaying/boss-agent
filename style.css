@@ -551,22 +551,23 @@ summary {
 }
 
 /* ========== 强制覆盖：去除空白区域 ========== */
+/* 注意：这些规则仅作用于 .main-container 内，避免影响 Boss 页面布局 */
 
 /* 1. 确保所有卡片容器不自动撑开高度 */
-.card {
-  flex: 0 0 auto !important; /* 禁止flex自动放大 */
+.main-container .card {
+  flex: 0 0 auto !important;
   height: auto !important;
 }
 
 /* 2. 确保底部按钮紧跟内容，不贴底部 */
-.footer-actions {
+.main-container .footer-actions {
   position: static !important;
   margin-top: 16px !important;
   padding-bottom: 16px;
 }
 
 /* 3. 针对可能的modal弹窗 */
-.modal-content {
+.main-container .modal-content {
   flex: 0 0 auto !important;
   height: auto !important;
   max-height: 90vh;
@@ -579,7 +580,7 @@ summary {
 }
 
 /* 5. 确保textarea不会撑得太高 */
-textarea {
+.main-container textarea {
   max-height: 200px !important;
   overflow-y: auto !important;
 }
@@ -618,23 +619,4 @@ textarea {
   display: none !important;
   position: static !important;
   height: 0 !important;
-}
-
-/* 确保所有可能的隐藏元素不占用空间 */
-[style*="display: none"] {
-  position: static !important;
-  height: 0 !important;
-  width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* 防止任何元素的min-height撑开页面 */
-* {
-  min-height: 0 !important;
-}
-
-/* 允许必要的元素有min-height */
-body, html, .main-container, .card, textarea, input {
-  min-height: auto !important;
 }
