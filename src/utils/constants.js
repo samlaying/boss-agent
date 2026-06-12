@@ -29,6 +29,10 @@ export const STORAGE_KEYS = {
   GREETING_MODEL: 'greetingModel',
   ANALYSIS_MODEL: 'analysisModel',
   CUSTOM_MODELS: 'customModels',
+  SETUP_COMPLETED: 'setupCompleted',
+  GREETING_COUNT: 'greetingCount',
+  ENABLE_POSTER: 'enablePoster',
+  BLOCK_RULES: 'blockRules',
 };
 
 export const EVENTS = {
@@ -38,11 +42,23 @@ export const EVENTS = {
 
 // 预置模型列表
 export const PRESET_MODELS = [
-  { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash（快速）', endpoint: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
-  { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro（深度思考）', endpoint: 'https://api.deepseek.com', model: 'deepseek-v4-pro' },
+  {
+    id: 'deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash（快速）',
+    endpoint: 'https://api.deepseek.com',
+    model: 'deepseek-v4-flash',
+  },
+  {
+    id: 'deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro（深度思考）',
+    endpoint: 'https://api.deepseek.com',
+    model: 'deepseek-v4-pro',
+  },
 ];
 
 // 默认提示词模板
-export const DEFAULT_GREETING_PROMPT = '根据以下简历和职位信息，生成一段简洁、专业的打招呼语（50字以内）：\n\n简历：{{resume}}\n职位：{{jobTitle}}\n描述：{{jobDesc}}';
+export const DEFAULT_GREETING_PROMPT =
+  '根据以下简历和职位信息，生成一段简洁、专业的打招呼语（50字以内）：\n\n简历：{{resume}}\n职位：{{jobTitle}}\n描述：{{jobDesc}}';
 
-export const DEFAULT_ANALYSIS_PROMPT = '请分析以下简历与职位的匹配度，给出 0-100 分和简要理由：\n\n简历：{{resume}}\n职位：{{jobTitle}}\n描述：{{jobDesc}}';
+export const DEFAULT_ANALYSIS_PROMPT =
+  '请分析以下简历与职位的匹配度，给出 0-100 分和简要理由：\n\n简历：{{resume}}\n职位：{{jobTitle}}\n描述：{{jobDesc}}';
