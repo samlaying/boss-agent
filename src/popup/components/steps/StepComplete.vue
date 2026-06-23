@@ -64,6 +64,12 @@
                 {{ apiKeyValid ? '✓' : '✗' }}
               </span>
             </div>
+            <div class="input-hint">
+              没有 Key？<a
+                href="https://platform.deepseek.com"
+                target="_blank"
+              >点击这里获取 →</a>
+            </div>
           </div>
           <button
             class="btn-save-inline"
@@ -211,7 +217,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../../utils/storage.js';
 import { STORAGE_KEYS } from '../../../utils/constants.js';
 
@@ -228,6 +234,13 @@ const apiKey = ref('');
 const resumeText = ref('');
 
 const apiKeyValid = computed(() => apiKey.value.trim().length >= 8);
+
+// 开启 AI 时默认选中 1 条
+watch(enableGreeting, (val) => {
+  if (val && greetingCount.value === 0) {
+    greetingCount.value = 1;
+  }
+});
 
 const enabledFeatures = computed(() => {
   const features = ['自动打招呼'];
@@ -257,6 +270,8 @@ onMounted(async () => {
   const gc = data[STORAGE_KEYS.GREETING_COUNT];
   greetingCount.value = gc != null ? gc : 1;
   enableGreeting.value = gc != null ? gc > 0 : false;
+  // 默认展开功能卡片
+  expandedItems.value.add('features');
 });
 
 async function saveApiKey() {

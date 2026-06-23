@@ -10,8 +10,11 @@
       </p>
     </div>
 
-    <!-- Custom Greeting Text -->
-    <div class="form-group">
+    <!-- Custom Greeting Text (only when AI is NOT enabled) -->
+    <div
+      v-if="!hasAi"
+      class="form-group"
+    >
       <label>💬 自定义打招呼用语</label>
       <textarea
         v-model="customGreeting"
@@ -148,7 +151,7 @@ import { ref, computed, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../../utils/storage.js';
 import { STORAGE_KEYS, PRESET_MODELS, DEFAULT_GREETING_PROMPT } from '../../../utils/constants.js';
 
-const props = defineProps({
+defineProps({
   hasAi: { type: Boolean, default: false },
 });
 

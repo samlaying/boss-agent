@@ -2466,6 +2466,9 @@ function renderEnergyExhaustedCard() {
 
 // === 核心 AI 请求 ===
 async function doAnalyze(data, signal = null, forceRefresh = false) {
+    // 读取用户选择的生成条数
+    const countRes = await new Promise(r => chrome.storage.local.get(['greetingCount'], r));
+    const greetingCount = countRes.greetingCount || 3;
     try {
         // 如果已经取消，立即返回
         if (signal && signal.aborted) throw new Error("Aborted");
@@ -2481,9 +2484,10 @@ async function doAnalyze(data, signal = null, forceRefresh = false) {
         const res = await chrome.runtime.sendMessage({
             action: "call_deepseek",
             // 明确添加薪资字段，防止因截断或解析问题导致丢失
-            jobText: `${data.text.substring(0, 2900)}\n【薪资信息】：${data.salary || "面议"}`, 
+            jobText: `${data.text.substring(0, 2900)}\n【薪资信息】：${data.salary || "面议"}`,
             hrName: data.hr,
-            bossTitle: data.hrTitle
+            bossTitle: data.hrTitle,
+            greetingCount
         });
         
         // 收到结果后，再次检查是否被取消
@@ -2561,11 +2565,16 @@ async function getCustomGreeting() {
 async function generateGreetingFromJob(data, signal = null) {
     if (signal && signal.aborted) throw new Error("Aborted");
 
+    // 读取用户选择的生成条数
+    const countRes = await new Promise(r => chrome.storage.local.get(['greetingCount'], r));
+    const greetingCount = countRes.greetingCount || 3;
+
     const res = await chrome.runtime.sendMessage({
         action: "generate_greeting",
         jobText: `${data.text.substring(0, 2900)}\n【薪资信息】：${data.salary || "面议"}`,
         hrName: data.hr,
-        bossTitle: data.hrTitle
+        bossTitle: data.hrTitle,
+        greetingCount
     });
 
     if (signal && signal.aborted) throw new Error("Aborted");
