@@ -37,6 +37,18 @@
 
     <div class="step-nav">
       <button
+        class="btn-prev"
+        @click="$emit('prev')"
+      >
+        上一步
+      </button>
+      <button
+        class="btn-skip"
+        @click="$emit('next')"
+      >
+        跳过
+      </button>
+      <button
         class="btn-next"
         :disabled="!isValid"
         @click="handleNext"

@@ -4,34 +4,47 @@
       <div class="step-icon">
         ⚙️
       </div>
-      <h2>选择你的投递助手功能</h2>
+      <h2>选择你要启用的功能</h2>
       <p class="step-desc">
-        请选择你需要的 AI 辅助功能（可多选）：
+        Boss Agent 支持多种求职辅助模式，按需开启：
       </p>
     </div>
 
-    <!-- Greeting Generation -->
+    <!-- 基础：自动打招呼 -->
+    <div class="feature-card active">
+      <div class="feature-card-header">
+        <div class="feature-card-title">
+          <span>💬</span> 自动打招呼
+        </div>
+        <span class="feature-tag">基础</span>
+      </div>
+      <div class="feature-card-desc">
+        自动沟通循环，批量向 HR 发送打招呼语，支持自定义打招呼用语。
+      </div>
+    </div>
+
+    <!-- 可选：AI 生成打招呼用语 -->
     <div
       class="feature-card"
-      :class="{ active: enableGreeting }"
+      :class="{ active: enableAiGreeting }"
     >
       <div class="feature-card-header">
         <div class="feature-card-title">
-          <span>🤖</span> 智能打招呼用语生成
+          <span>🤖</span> AI 生成打招呼用语
         </div>
         <label class="wg-toggle">
           <input
-            v-model="enableGreeting"
+            v-model="enableAiGreeting"
             type="checkbox"
           >
           <span class="wg-toggle-track" />
         </label>
       </div>
       <div class="feature-card-desc">
-        根据岗位 JD 自动生成个性化打招呼用语，提高 HR 回复率。
+        根据岗位 JD 自动生成个性化打招呼用语，提高 HR 回复率。需要配置 API Key。
       </div>
       <div
-        v-if="enableGreeting"
+        v-if="enableAiGreeting"
         class="feature-card-options"
       >
         <div class="radio-group">
@@ -46,57 +59,13 @@
               name="greetingCount"
               :value="n"
             >
-            {{ n }}条
+            每次生成 {{ n }} 条
           </label>
         </div>
       </div>
     </div>
 
-    <!-- Job Analysis -->
-    <div
-      class="feature-card"
-      :class="{ active: enableAnalysis }"
-    >
-      <div class="feature-card-header">
-        <div class="feature-card-title">
-          <span>🔍</span> 岗位匹配度分析
-        </div>
-        <label class="wg-toggle">
-          <input
-            v-model="enableAnalysis"
-            type="checkbox"
-          >
-          <span class="wg-toggle-track" />
-        </label>
-      </div>
-      <div class="feature-card-desc">
-        分析简历与岗位的匹配程度，给出优化建议。
-      </div>
-    </div>
-
-    <!-- Poster -->
-    <div
-      class="feature-card"
-      :class="{ active: enablePoster }"
-    >
-      <div class="feature-card-header">
-        <div class="feature-card-title">
-          <span>🖼️</span> 生成简历投递海报
-        </div>
-        <label class="wg-toggle">
-          <input
-            v-model="enablePoster"
-            type="checkbox"
-          >
-          <span class="wg-toggle-track" />
-        </label>
-      </div>
-      <div class="feature-card-desc">
-        为本次投递生成可视化简历海报，适合发送给 HR 或分享到社交平台。
-      </div>
-    </div>
-
-    <!-- Block Rules -->
+    <!-- 屏蔽规则 -->
     <div
       class="feature-card"
       :class="{ active: blockRules.length > 0 }"
@@ -151,10 +120,10 @@
     <!-- Navigation -->
     <div class="step-nav">
       <button
-        class="btn-prev"
-        @click="$emit('prev')"
+        class="btn-skip"
+        @click="handleSkip"
       >
-        上一步
+        跳过
       </button>
       <button
         class="btn-next"
@@ -167,29 +136,32 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../../utils/storage.js';
 import { STORAGE_KEYS } from '../../../utils/constants.js';
 
 const emit = defineEmits(['next', 'prev']);
 
-const enableGreeting = ref(true);
-const greetingCount = ref(3);
-const enableAnalysis = ref(true);
-const enablePoster = ref(false);
+const enableAiGreeting = ref(false);
+const greetingCount = ref(1);
 const blockRules = ref([]);
 const newRule = ref('');
 
+// 开启 AI 时默认选中 1 条
+watch(enableAiGreeting, (val) => {
+  if (val && greetingCount.value === 0) {
+    greetingCount.value = 1;
+  }
+});
+
 onMounted(async () => {
   const data = await storageGet([
-    STORAGE_KEYS.ENABLE_ANALYSIS,
     STORAGE_KEYS.GREETING_COUNT,
-    STORAGE_KEYS.ENABLE_POSTER,
     STORAGE_KEYS.BLOCK_RULES,
   ]);
-  enableAnalysis.value = data[STORAGE_KEYS.ENABLE_ANALYSIS] !== false;
-  greetingCount.value = data[STORAGE_KEYS.GREETING_COUNT] || 3;
-  enablePoster.value = data[STORAGE_KEYS.ENABLE_POSTER] || false;
+  const saved = data[STORAGE_KEYS.GREETING_COUNT];
+  greetingCount.value = saved != null ? saved : 1;
+  enableAiGreeting.value = saved != null ? saved > 0 : false;
   blockRules.value = data[STORAGE_KEYS.BLOCK_RULES] || [];
 });
 
@@ -209,15 +181,18 @@ function removeRule(idx) {
 
 async function save() {
   await storageSet({
-    [STORAGE_KEYS.ENABLE_ANALYSIS]: enableAnalysis.value,
-    [STORAGE_KEYS.GREETING_COUNT]: greetingCount.value,
-    [STORAGE_KEYS.ENABLE_POSTER]: enablePoster.value,
+    [STORAGE_KEYS.GREETING_COUNT]: enableAiGreeting.value ? greetingCount.value : 0,
     [STORAGE_KEYS.BLOCK_RULES]: blockRules.value,
   });
 }
 
 async function handleNext() {
   await save();
-  emit('next');
+  emit('next', enableAiGreeting.value);
+}
+
+async function handleSkip() {
+  await save();
+  emit('next', enableAiGreeting.value);
 }
 </script>

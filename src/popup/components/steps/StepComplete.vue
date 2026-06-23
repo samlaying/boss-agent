@@ -24,40 +24,178 @@
         </div>
         <h2>Boss Agent已就绪</h2>
       </div>
+    </template>
 
-      <div class="dashboard-status">
-        <div class="status-row">
-          <span class="check">✓</span> AI 引擎已连接
+    <!-- Status Cards (expandable) -->
+    <div class="dashboard-status">
+      <!-- AI Engine (only when AI is enabled) -->
+      <div
+        v-if="enableGreeting"
+        class="status-card"
+        :class="{ expanded: expandedItems.has('engine') }"
+      >
+        <div
+          class="status-row clickable"
+          @click="toggleItem('engine')"
+        >
+          <span :class="apiKey ? 'check' : 'warn'">
+            {{ apiKey ? '✓' : '⚠' }}
+          </span>
+          <span class="status-label">{{ apiKey ? 'AI 引擎已连接' : 'AI 引擎未配置' }}</span>
+          <span class="status-arrow">{{ expandedItems.has('engine') ? '▾' : '▸' }}</span>
         </div>
-        <div class="status-row">
+        <div
+          v-if="expandedItems.has('engine')"
+          class="status-body"
+        >
+          <div class="form-group">
+            <label>DeepSeek API Key</label>
+            <div class="input-wrap">
+              <input
+                v-model="apiKey"
+                type="password"
+                placeholder="sk-..."
+              >
+              <span
+                v-if="apiKey"
+                class="input-status"
+                :class="apiKeyValid ? 'valid' : 'invalid'"
+              >
+                {{ apiKeyValid ? '✓' : '✗' }}
+              </span>
+            </div>
+          </div>
+          <button
+            class="btn-save-inline"
+            @click.stop="saveApiKey"
+          >
+            保存
+          </button>
+        </div>
+      </div>
+
+      <!-- Resume -->
+      <div
+        class="status-card"
+        :class="{ expanded: expandedItems.has('resume') }"
+      >
+        <div
+          class="status-row clickable"
+          @click="toggleItem('resume')"
+        >
           <span :class="hasResume ? 'check' : 'warn'">
             {{ hasResume ? '✓' : '⚠' }}
           </span>
-          {{ hasResume ? '简历已配置' : '简历未配置' }}
+          <span class="status-label">{{ hasResume ? '简历已配置' : '简历未配置' }}</span>
+          <span class="status-arrow">{{ expandedItem === 'resume' ? '▾' : '▸' }}</span>
         </div>
-        <div class="status-row">
-          <span class="check">✓</span> 功能已启用 ({{ enabledFeatures }})
+        <div
+          v-if="expandedItems.has('resume')"
+          class="status-body"
+        >
+          <div class="form-group">
+            <label>简历内容</label>
+            <textarea
+              v-model="resumeText"
+              class="wg-textarea"
+              rows="6"
+              placeholder="粘贴你的简历文本..."
+            />
+            <div class="char-count">
+              {{ resumeText.length }} 字
+            </div>
+          </div>
+          <button
+            class="btn-save-inline"
+            @click.stop="saveResume"
+          >
+            保存
+          </button>
         </div>
       </div>
-    </template>
 
-    <!-- Usage Instructions -->
-    <div class="usage-steps">
-      <div class="usage-step">
-        <span class="usage-step-num">1</span>
-        <span>打开 Boss 直聘 / 猎聘等招聘网站</span>
-      </div>
-      <div class="usage-step">
-        <span class="usage-step-num">2</span>
-        <span>找到感兴趣的岗位，点击Boss Agent插件图标</span>
-      </div>
-      <div class="usage-step">
-        <span class="usage-step-num">3</span>
-        <span>选择「生成打招呼用语」或「分析匹配」</span>
-      </div>
-      <div class="usage-step">
-        <span class="usage-step-num">4</span>
-        <span>一键投递，Boss Agent会自动帮你优化话术</span>
+      <!-- Features -->
+      <div
+        class="status-card"
+        :class="{ expanded: expandedItems.has('features') }"
+      >
+        <div
+          class="status-row clickable"
+          @click="toggleItem('features')"
+        >
+          <span class="check">✓</span>
+          <span class="status-label">功能已启用 ({{ enabledFeatures }})</span>
+          <span class="status-arrow">{{ expandedItem === 'features' ? '▾' : '▸' }}</span>
+        </div>
+        <div
+          v-if="expandedItems.has('features')"
+          class="status-body"
+        >
+          <!-- 基础：自动打招呼 + 自定义用语 -->
+          <div class="feature-card-inline active">
+            <div class="feature-card-header">
+              <div class="feature-card-title">
+                <span>💬</span> 自动打招呼
+              </div>
+              <span class="feature-tag">基础</span>
+            </div>
+            <div
+              v-if="customGreeting"
+              class="feature-greeting-preview"
+            >
+              {{ customGreeting }}
+            </div>
+            <div
+              v-else
+              class="feature-card-desc"
+            >
+              未配置自定义打招呼用语
+            </div>
+          </div>
+
+          <!-- AI 生成打招呼用语 -->
+          <div class="feature-card-inline">
+            <div class="feature-card-header">
+              <div class="feature-card-title">
+                <span>🤖</span> AI 生成打招呼用语
+              </div>
+              <label class="wg-toggle">
+                <input
+                  v-model="enableGreeting"
+                  type="checkbox"
+                >
+                <span class="wg-toggle-track" />
+              </label>
+            </div>
+            <div
+              v-if="enableGreeting"
+              class="feature-card-options"
+            >
+              <div class="radio-group">
+                <label
+                  v-for="n in [1, 3, 5]"
+                  :key="n"
+                  class="radio-item"
+                >
+                  <input
+                    v-model="greetingCount"
+                    type="radio"
+                    name="greetingCount"
+                    :value="n"
+                  >
+                  每次生成 {{ n }} 条
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button
+            class="btn-save-inline"
+            @click.stop="saveFeatures"
+          >
+            保存
+          </button>
+        </div>
       </div>
     </div>
 
@@ -68,50 +206,73 @@
       >
         🌐 打开招聘网站
       </button>
-      <button
-        class="quick-btn"
-        @click="$emit('reconfigure')"
-      >
-        ⚙️ 重新配置
-      </button>
-    </div>
-
-    <div style="text-align: center; margin-top: 16px; font-size: 11px; color: var(--wg-text-light);">
-      ⚠️ 如需修改配置，随时点击「重新配置」
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { storageGet } from '../../../utils/storage.js';
+import { storageGet, storageSet } from '../../../utils/storage.js';
 import { STORAGE_KEYS } from '../../../utils/constants.js';
 
 defineProps({
   dashboard: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['reconfigure']);
-
 const hasResume = ref(false);
 const enableGreeting = ref(true);
-const enableAnalysis = ref(true);
+const greetingCount = ref(3);
+const customGreeting = ref('');
+const expandedItems = ref(new Set());
+const apiKey = ref('');
+const resumeText = ref('');
+
+const apiKeyValid = computed(() => apiKey.value.trim().length >= 8);
 
 const enabledFeatures = computed(() => {
-  const features = [];
-  if (enableGreeting.value) features.push('打招呼');
-  if (enableAnalysis.value) features.push('匹配分析');
+  const features = ['自动打招呼'];
+  if (enableGreeting.value) features.push('AI生成用语');
   return features.join('、');
 });
 
+function toggleItem(name) {
+  if (expandedItems.value.has(name)) {
+    expandedItems.value.delete(name);
+  } else {
+    expandedItems.value.add(name);
+  }
+}
+
 onMounted(async () => {
   const data = await storageGet([
+    STORAGE_KEYS.API_KEY,
     STORAGE_KEYS.RESUME,
-    STORAGE_KEYS.ENABLE_ANALYSIS,
+    STORAGE_KEYS.GREETING_COUNT,
+    STORAGE_KEYS.CUSTOM_GREETING,
   ]);
+  apiKey.value = data[STORAGE_KEYS.API_KEY] || '';
+  resumeText.value = data[STORAGE_KEYS.RESUME] || '';
+  customGreeting.value = data[STORAGE_KEYS.CUSTOM_GREETING] || '';
   hasResume.value = !!(data[STORAGE_KEYS.RESUME] && data[STORAGE_KEYS.RESUME].length > 50);
-  enableAnalysis.value = data[STORAGE_KEYS.ENABLE_ANALYSIS] !== false;
+  const gc = data[STORAGE_KEYS.GREETING_COUNT];
+  greetingCount.value = gc != null ? gc : 1;
+  enableGreeting.value = gc != null ? gc > 0 : false;
 });
+
+async function saveApiKey() {
+  await storageSet({ [STORAGE_KEYS.API_KEY]: apiKey.value.trim() });
+}
+
+async function saveResume() {
+  await storageSet({ [STORAGE_KEYS.RESUME]: resumeText.value });
+  hasResume.value = !!(resumeText.value && resumeText.value.length > 50);
+}
+
+async function saveFeatures() {
+  await storageSet({
+    [STORAGE_KEYS.GREETING_COUNT]: enableGreeting.value ? greetingCount.value : 0,
+  });
+}
 
 function openZhipin() {
   chrome.tabs.create({ url: 'https://www.zhipin.com/web/geek/job-recommend' });

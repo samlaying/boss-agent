@@ -1,3 +1,105 @@
+
+.app-header[data-v-ced6b4ac] {
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid rgba(0, 190, 189, 0.15);
+}
+.header-row[data-v-ced6b4ac] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dot[data-v-ced6b4ac] {
+  width: 8px;
+  height: 8px;
+  background: var(--wg-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--wg-primary);
+  animation: pulse-ced6b4ac 2s infinite;
+}
+@keyframes pulse-ced6b4ac {
+0% { box-shadow: 0 0 0 0 rgba(0, 190, 189, 0.4);
+}
+70% { box-shadow: 0 0 0 6px rgba(0, 190, 189, 0);
+}
+100% { box-shadow: 0 0 0 0 rgba(0, 190, 189, 0);
+}
+}
+.title[data-v-ced6b4ac] {
+  color: #333;
+  font-family: 'Times New Roman', serif;
+  font-size: 18px;
+  margin: 0;
+}
+.badge[data-v-ced6b4ac] {
+  background: var(--wg-primary-light);
+  color: var(--wg-primary);
+  border: 1px solid var(--wg-primary-border);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.settings-btn[data-v-ced6b4ac] {
+  margin-left: auto;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.settings-btn[data-v-ced6b4ac]:hover {
+  opacity: 1;
+}
+.subtitle[data-v-ced6b4ac] {
+  font-size: 11px;
+  color: #90a4ae;
+  margin: 4px 0 0;
+  font-style: italic;
+}
+
+
+.wizard-progress[data-v-70d5fbab] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px 8px;
+  gap: 0;
+}
+.progress-step[data-v-70d5fbab] {
+  display: flex;
+  align-items: center;
+}
+.progress-dot[data-v-70d5fbab] {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e8e8e8;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+.progress-dot.active[data-v-70d5fbab] {
+  background: var(--wg-primary);
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--wg-primary-light);
+}
+.progress-dot.done[data-v-70d5fbab] {
+  background: var(--wg-success);
+  color: #fff;
+}
+.progress-line[data-v-70d5fbab] {
+  width: 40px;
+  height: 2px;
+  background: #e8e8e8;
+  transition: background 0.3s;
+}
+.progress-line.done[data-v-70d5fbab] {
+  background: var(--wg-success);
+}
+
 /* ============================================================
    Boss Agent · 配置向导 - 全局样式
    Page type: Form / Wizard — completion, confidence, low friction
@@ -969,3 +1071,4 @@ body.boss-agent-onboarding .wizard-container {
   border-radius: var(--wg-radius);
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }
+

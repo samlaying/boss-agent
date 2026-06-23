@@ -2548,6 +2548,15 @@ async function doAnalyze(data, signal = null, forceRefresh = false) {
     }
 }
 
+// === 获取自定义打招呼用语 ===
+async function getCustomGreeting() {
+    return new Promise(resolve => {
+        chrome.storage.local.get(['customGreeting'], res => {
+            resolve(res.customGreeting || '');
+        });
+    });
+}
+
 // === 生成打招呼话术 (不做匹配分析) ===
 async function generateGreetingFromJob(data, signal = null) {
     if (signal && signal.aborted) throw new Error("Aborted");
@@ -3758,7 +3767,7 @@ async function autoApplyNext() {
     }
 
     if (!greetingText) {
-        greetingText = "您好，我对该岗位很感兴趣，期待进一步沟通。";
+        greetingText = await getCustomGreeting() || "您好，我对该岗位很感兴趣，期待进一步沟通。";
     }
 
     if (await randomHumanPause(8000, 18000, "发送招呼前") === false) return;
@@ -5537,13 +5546,15 @@ function renderFullReport(jobData, aiData) {
     }
 
     // [FIX] 强制补齐 3 个 Tab (稳健/进攻/破冰)，解决 AI 偶尔只返回 2 个的问题
+    const customGreeting = await getCustomGreeting();
+    const fallbackBase = customGreeting || "您好，我对贵司该岗位非常感兴趣。我有相关的项目经验，熟悉核心技术栈，能快速上手业务。期待能有机会与您进一步交流。";
     if (scripts.length > 0 && scripts.length < 3) {
         const templates = [
             {
                 keywords: ['稳健', '防守', 'Professional'],
                 fallback: {
                     style: "🛡️ 稳健防守型",
-                    content: "您好，我对贵司该岗位非常感兴趣。我有相关的项目经验，熟悉核心技术栈，能快速上手业务。期待能有机会与您进一步交流。",
+                    content: fallbackBase,
                     rationale: "标准开场，强调匹配度与稳定性 (系统自动补全)"
                 }
             },
@@ -6272,9 +6283,10 @@ function bindEvents() {
 
             const scripts = (aiData && aiData.interview_guide && aiData.interview_guide.opening_scripts) || [];
             const bestScript = scripts.find(s => s && s.style === 'Direct') || scripts[0];
+            const customGreeting = await getCustomGreeting();
             const greetingText = bestScript && bestScript.content
                 ? bestScript.content
-                : "您好，我对该岗位很感兴趣，期待进一步沟通。";
+                : (customGreeting || "您好，我对该岗位很感兴趣，期待进一步沟通。");
 
             await autoGreet(greetingText, {
                 jobId: getJobId(window.location.href),

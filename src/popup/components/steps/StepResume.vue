@@ -54,30 +54,10 @@
       @input="onRawTextChange"
     />
 
-    <!-- AI Extract -->
-    <div class="ai-toggle">
-      <label class="wg-toggle">
-        <input
-          v-model="aiEnabled"
-          type="checkbox"
-        >
-        <span class="wg-toggle-track" />
-      </label>
-      <span class="ai-toggle-text">✨ AI 精简模式 — 自动提取核心经历，可手动编辑</span>
-    </div>
-
-    <button
-      v-if="aiEnabled && rawText"
-      class="btn-next"
-      :disabled="extracting"
-      @click="extractResume"
-    >
-      {{ extracting ? '⏳ AI 提取中...' : '🤖 AI 提取精简简历' }}
-    </button>
-
+    <!-- Upload Error -->
     <div
       v-if="extractError"
-      style="color: var(--wg-error); font-size: 12px; margin-top: 8px;"
+      style="color: var(--wg-error); font-size: 12px; margin: 8px 0; padding: 8px 12px; background: #fff5f5; border-radius: 6px;"
     >
       {{ extractError }}
     </div>
@@ -114,6 +94,7 @@
       </button>
       <button
         class="btn-next"
+        :disabled="!cleanResume"
         @click="handleNext"
       >
         保存并继续
@@ -126,8 +107,7 @@
 import { ref, onMounted } from 'vue';
 import { extractTextFromFile } from '../../../utils/pdf-extract.js';
 import { storageGet, storageSet } from '../../../utils/storage.js';
-import { STORAGE_KEYS, MESSAGE_TYPES } from '../../../utils/constants.js';
-import { sendToBackground } from '../../../utils/message.js';
+import { STORAGE_KEYS } from '../../../utils/constants.js';
 
 const emit = defineEmits(['next', 'prev']);
 
@@ -135,8 +115,6 @@ const rawText = ref('');
 const cleanResume = ref('');
 const fileName = ref('');
 const showPaste = ref(false);
-const aiEnabled = ref(true);
-const extracting = ref(false);
 const extractError = ref('');
 const saved = ref(false);
 
@@ -160,11 +138,9 @@ async function handleFileUpload(event) {
   try {
     rawText.value = await extractTextFromFile(file);
     await storageSet({ [STORAGE_KEYS.RESUME_PDF_RAW]: rawText.value });
-    // Auto-fill clean resume if empty
-    if (!cleanResume.value) {
-      cleanResume.value = rawText.value;
-      await saveClean();
-    }
+    // 始终用文件内容填充简历
+    cleanResume.value = rawText.value;
+    await saveClean();
   } catch (err) {
     extractError.value = '文件解析失败: ' + err.message;
   }
@@ -181,28 +157,6 @@ function onRawTextChange() {
   saveTimer = setTimeout(() => {
     storageSet({ [STORAGE_KEYS.RESUME_PDF_RAW]: rawText.value });
   }, 500);
-}
-
-async function extractResume() {
-  if (!rawText.value) return;
-  extracting.value = true;
-  extractError.value = '';
-  try {
-    const res = await sendToBackground({
-      type: MESSAGE_TYPES.EXTRACT_RESUME,
-      payload: { resumeRaw: rawText.value },
-    });
-    if (res.error) {
-      extractError.value = res.error;
-    } else {
-      cleanResume.value = res.resumeClean;
-      await saveClean();
-    }
-  } catch (err) {
-    extractError.value = '请求失败: ' + err.message;
-  } finally {
-    extracting.value = false;
-  }
 }
 
 function onCleanChange() {

@@ -72,6 +72,12 @@
         上一步
       </button>
       <button
+        class="btn-skip"
+        @click="$emit('next')"
+      >
+        跳过
+      </button>
+      <button
         class="btn-next"
         @click="handleNext"
       >

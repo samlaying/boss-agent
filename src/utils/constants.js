@@ -31,6 +31,7 @@ export const STORAGE_KEYS = {
   CUSTOM_MODELS: 'customModels',
   SETUP_COMPLETED: 'setupCompleted',
   GREETING_COUNT: 'greetingCount',
+  CUSTOM_GREETING: 'customGreeting',
   ENABLE_POSTER: 'enablePoster',
   BLOCK_RULES: 'blockRules',
 };
