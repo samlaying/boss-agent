@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "微光",
+  "name": "Boss Agent",
   "description": "一款带夜视功能的职场翻译机。别怕黑，这里有光。把困难留给 AI，把尊严留给自己。",
   "version": "3.0.14",
   "permissions": ["storage", "unlimitedStorage", "scripting", "tabs", "activeTab", "notifications"],
@@ -10,9 +10,7 @@
     "https://api.deepseek.com/*"
   ],
   "options_page": "options.html",
-  "action": {
-    "default_popup": "popup.html"
-  },
+  "action": {},
   "background": {
     "service_worker": "background.bundle.js"
   },

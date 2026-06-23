@@ -11,7 +11,7 @@ const variants = {
     social: {
         mode: "social",
         label: "社招版",
-        name: "微光 社招版",
+        name: "Boss Agent 社招版",
         description: "面向社招求职的 Boss 直聘 AI 职位分析助手。",
         features: {
             autoApply: true,
@@ -21,7 +21,7 @@ const variants = {
     intern: {
         mode: "intern",
         label: "实习生版",
-        name: "微光 实习生版",
+        name: "Boss Agent 实习生版",
         description: "面向在校生和实习投递的 Boss 直聘 AI 职位分析助手。",
         features: {
             autoApply: true,
@@ -45,8 +45,8 @@ const includePaths = [
     "variant.js",
     "background.js",
     "content.js",
-    "popup.html",
-    "popup.js",
+    "onboarding.html",
+    "onboarding.js",
     "style.css",
     "html2canvas.min.js",
     "injected_probe.js",
@@ -62,8 +62,8 @@ await mkdir(distDir, { recursive: true });
 
 for (const mode of modes) {
     const variant = variants[mode];
-    const outputDir = path.join(distDir, `weiguang-${mode}`);
-    const zipPath = path.join(distDir, `weiguang-${mode}.zip`);
+    const outputDir = path.join(distDir, `boss-agent-${mode}`);
+    const zipPath = path.join(distDir, `boss-agent-${mode}.zip`);
 
     await rm(outputDir, { recursive: true, force: true });
     await rm(zipPath, { force: true });

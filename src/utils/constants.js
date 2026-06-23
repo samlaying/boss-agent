@@ -36,8 +36,8 @@ export const STORAGE_KEYS = {
 };
 
 export const EVENTS = {
-  DOM_UPDATED: 'weiguang:dom-updated',
-  JOB_FOUND: 'weiguang:job-found',
+  DOM_UPDATED: 'boss-agent:dom-updated',
+  JOB_FOUND: 'boss-agent:job-found',
 };
 
 // 预置模型列表

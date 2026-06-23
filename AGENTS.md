@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-"微光" (Glimmer Vision) is a Chrome browser extension that provides AI-powered job analysis for Boss直聘 (zhipin.com). It functions as a job-seeking assistant with night vision capabilities, helping users analyze job postings, match resumes with positions, and identify potential risks.
+"Boss Agent" is a Chrome browser extension that provides AI-powered job analysis for Boss直聘 (zhipin.com). It functions as a job-seeking assistant with night vision capabilities, helping users analyze job postings, match resumes with positions, and identify potential risks.
 
 ## Core Architecture
 
@@ -14,7 +14,7 @@ This is a Manifest V3 Chrome extension with the following main components:
 - **manifest.json** - Extension configuration (Manifest V3)
 - **background.js** - Service worker handling API calls and core logic (889 lines)
 - **content.js** - Content script injected into Boss直聘 pages (6,106 lines) - Main logic hub
-- **popup.html/popup.js** - Extension popup interface and settings management
+- **onboarding.html/onboarding.js** - Browser-page onboarding entry
 - **injected_probe.js** - Main world script for deep data extraction (Hook techniques)
 - **spa_monitor.js** - SPA navigation monitoring
 - **style.css** - UI styling for injected elements
@@ -41,8 +41,7 @@ This is a Manifest V3 Chrome extension with the following main components:
 
 ### Message Passing Architecture
 Communication between contexts follows Chrome extension messaging patterns:
-- **popup.js → background.js**: Settings save/load, energy redemption, AI config generation
-- **popup.js → content.js**: Direct job analysis trigger via `chrome.tabs.sendMessage`
+- **onboarding page → background.js**: Settings save/load and AI config generation
 - **content.js → background.js**: API calls, storage operations
 - **content.js → injected scripts**: Data extraction requests via window events
 - **injected scripts → content.js**: Callbacks through custom event system
@@ -116,7 +115,7 @@ This extension uses web scraping and data extraction techniques that may be cons
 - Risk of account suspension for users
 
 ### Lab Mode (`enableLabMode`)
-When enabled in popup.js:51-59, shows user warning about:
+When enabled in the settings UI, shows user warning about:
 - Network request interception risks
 - Potential account suspension
 - Requires explicit confirmation before enabling
@@ -136,7 +135,7 @@ When enabled in popup.js:51-59, shows user warning about:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **boss-agent** (1433 symbols, 2394 relationships, 113 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **boss-agent** (1615 symbols, 2726 relationships, 127 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

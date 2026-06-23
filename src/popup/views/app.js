@@ -8,7 +8,7 @@ export function renderApp() {
     app.innerHTML = `
       <div class="popup-container">
         <header class="popup-header">
-          <h2>✨ 微光</h2>
+          <h2>✨ Boss Agent</h2>
           <span class="version-badge">PRO</span>
         </header>
         <section class="popup-body">

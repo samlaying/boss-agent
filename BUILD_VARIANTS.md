@@ -1,6 +1,6 @@
 # Build Variants
 
-微光现在用一个代码库维护两个产品变体：
+Boss Agent现在用一个代码库维护两个产品变体：
 
 - `social`: 社招版，开启自动沟通，关闭实习生硬过滤。
 - `intern`: 实习生版，开启自动沟通和实习生硬过滤。
@@ -18,10 +18,10 @@ npm run build:intern
 构建结果会输出到：
 
 ```text
-dist/weiguang-social/
-dist/weiguang-social.zip
-dist/weiguang-intern/
-dist/weiguang-intern.zip
+dist/boss-agent-social/
+dist/boss-agent-social.zip
+dist/boss-agent-intern/
+dist/boss-agent-intern.zip
 ```
 
 开发时直接加载仓库根目录，会使用当前 `variant.js` 中的默认社招版配置。发布或分发时以 `dist/` 下的构建结果为准。

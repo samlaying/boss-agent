@@ -1,5 +1,5 @@
 {
-  "name": "weiguang-extension",
+  "name": "boss-agent-extension",
   "version": "3.0.14",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
     "build:social": "node scripts/build-variants.mjs social",
     "build:dev": "webpack --mode development",
     "build:intern": "node scripts/build-variants.mjs intern",
-    "zip": "cd dist && zip -r ../weiguang-extension.zip .",
+    "zip": "cd dist && zip -r ../boss-agent-extension.zip .",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/"

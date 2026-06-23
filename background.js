@@ -1,6 +1,10 @@
 // background.js - 终极修复版 (异步通信 + 安全JSON解析 + 超时重试 + 能量模式)
 
-console.log("🚀 微光: Background Service Started");
+console.log("🚀 Boss Agent: Background Service Started");
+
+chrome.action.onClicked.addListener(() => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
+});
 
 // 腾讯云 Serverless 代理地址 (请替换为实际部署地址)
 const SERVERLESS_URL = "https://1254102186-4c0oxqya5x.ap-guangzhou.tencentscf.com";
@@ -414,79 +418,6 @@ function generateUUID() {
     });
 }
 
-// 处理 Key 核销的逻辑 (提取为单独函数)
-async function handleRedeemDailyKey(key, sendResponse) {
-    try {
-        const userInput = key ? key.trim() : "";
-        console.log(`[StrictRedeem] 处理输入: "${userInput}"`);
-
-        if (!userInput) {
-            sendResponse({ success: false, error: "无效的暗号" });
-            return;
-        }
-
-        // === 智能识别流程 ===
-        // 严格模式：所有 Key 获取必须走公众号 (Coze) 流程
-        // 插件端只负责核销 (redeem)，不负责领票 (get_daily_key)
-
-        // 1. 格式校验 (GM-MMDD-XXXXXX 或 PARTNER-MMDD-XXXXXX)
-        // 允许前缀为 GM 或 PARTNER，中间是4位数字(MMDD)，后面是6位字符
-        const validFormat = /^(GM|PARTNER)-\d{4}-[A-Z0-9]{6}$/;
-
-        if (!validFormat.test(userInput)) {
-            console.warn(`[StrictRedeem] 拦截无效格式输入: ${userInput}`);
-            
-            let errorMsg = "格式错误。";
-            // 针对常见错误输入的友好提示
-            if (userInput === "1" || userInput.includes("加油") || userInput.includes("暗号")) {
-                        errorMsg = "请前往公众号【旷野里的猫-AI】\n回复 '1' 获取今日暗号\n(格式如 GM-0520-XXXXXX)";
-                    } else if (userInput.toUpperCase().startsWith("VTOKEN")) {
-                        errorMsg = "请前往公众号发送此兑换码\n激活您的同行者权益并获取暗号\n(格式如 PARTNER-XXXXXX)";
-                    } else {
-                         errorMsg = "无效暗号。请检查格式 (GM-MMDD-XXXXXX)\n或前往公众号【旷野里的猫-AI】获取";
-                    }
-            
-            sendResponse({ success: false, error: errorMsg });
-            return;
-        }
-        
-        // 2. 执行核销 (redeem_daily_key)
-        // 只有格式正确的 Key 才会发起网络请求
-        console.log(`🔥 [StrictRedeem] 格式校验通过，开始核销: ${userInput}`);
-        
-        const redeemRes = await fetchWithRetry(SERVERLESS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "redeem_daily_key",
-                key: userInput
-            })
-        });
-
-        const redeemData = await redeemRes.json();
-
-        if (redeemData.success) {
-            // 核销成功，增加本地能量
-            const addedEnergy = redeemData.added_energy || 30;
-            const { energyCount = 0 } = await chrome.storage.local.get("energyCount");
-            const newEnergy = energyCount + addedEnergy;
-
-            // 存储最新的 Key 以便后续请求带上
-            await chrome.storage.local.set({ energyCount: newEnergy, userKey: userInput });
-            
-            // 组合提示信息
-            let finalMsg = `✅ 充能成功！能量 +${addedEnergy}`;
-            sendResponse({ success: true, newEnergy: newEnergy, addedEnergy: addedEnergy, message: finalMsg });
-        } else {
-            sendResponse({ success: false, error: redeemData.error || "核销失败" });
-        }
-
-    } catch (error) {
-        console.error("❌ 处理流程异常:", error);
-        sendResponse({ success: false, error: error.message });
-    }
-}
-
 // === 请求控制器 (用于停止分析) ===
 const activeRequests = new Map();
 
@@ -759,14 +690,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         });
         return true;
-    }
-
-    // 监听核销请求
-    if (request.action === "redeem_daily_key") {
-        console.log("[Background] Received redeem request:", request);
-        // 直接调用处理函数
-        handleRedeemDailyKey(request.key, sendResponse);
-        return true; // 保持消息通道开启
     }
 
     // === 脚本注入服务 (解决 CSP 问题) ===

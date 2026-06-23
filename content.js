@@ -1,5 +1,5 @@
 // content.js - V20.1 (右侧数据源唯一真理版)
-// console.log("🚀 Glimmer Vision: V20.1 Single Source of Truth");
+// console.log("🚀 Boss Agent: V20.1 Single Source of Truth");
 
 // === 开启调试日志 ===
 console.log("🚀 [BossHelper] Content Script Loaded v" + chrome.runtime.getManifest().version);
@@ -278,7 +278,7 @@ function initBall() {
     const ball = document.createElement('div');
     ball.id = 'boss-copilot-ball';
     ball.innerText = '🌌'; // 使用星系图标
-    ball.title = '微光';
+    ball.title = 'Boss Agent';
     ball.style.cssText = `position:fixed;top:150px;right:0;width:40px;height:40px;background:#263238;color:#fff;border-radius:20px 0 0 20px;z-index:99999;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:-2px 2px 8px rgba(0,0,0,0.2);`;
     ball.onclick = () => {
         document.getElementById('boss-copilot-panel').style.display = 'flex';
@@ -635,7 +635,7 @@ function initWrapper() {
 
       <!-- 面板标题栏 -->
       <div class="panel-header" style="background:linear-gradient(135deg, var(--primary-color), var(--primary-dark)); padding:12px 15px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; justify-content:space-between; align-items:center; cursor:move; user-select:none; border-radius:12px 12px 0 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <span style="font-weight:800; color:#fff; font-size:14px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">✨ 微光</span>
+          <span style="font-weight:800; color:#fff; font-size:14px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">✨ Boss Agent</span>
           <div class="panel-controls" style="display:flex; align-items:center; gap:8px;">
               <span id="scan-status-tag" style="background:rgba(255,255,255,0.2); color:#fff; font-size:10px; padding:2px 8px; border-radius:10px; backdrop-filter:blur(4px);">Standby</span>
               <button id="btn-reset" class="icon-btn" title="重置位置">↺</button>
@@ -681,198 +681,9 @@ function initWrapper() {
           </div>
       </div>
 
-      <!-- 链接作者弹窗 (Local Author Modal) - Aligned with Config Page -->
-      <div id="localAuthorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
-        <div class="modal-content" style="text-align: center; position: relative; padding: 25px 20px; max-width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-            <div id="closeLocalAuthorModal" style="position: absolute; top: 12px; right: 15px; cursor: pointer; font-size: 24px; color: #ccc;">&times;</div>
-            
-            <!-- 标题 -->
-            <h4 style="margin: 0 0 15px 0; color: #333; font-size: 16px; font-weight: 800; letter-spacing: 0.5px;">
-                📡 旷野信号塔
-            </h4>
-            
-            <!-- 新增：呼唤语 -->
-            <div style="font-size: 10px; color: #90a4ae; margin-bottom: 10px; font-style: italic;">
-                “ 致 每一位在寒冬中赶路的战友 ”
-            </div>
-
-            <!-- 二维码 -->
-            <div style="margin: 0 auto 12px auto; width: 150px; height: 150px; border: 4px solid #f5f5f5; border-radius: 12px; padding: 5px;">
-                <img src="${chrome.runtime.getURL('images/author_qr.jpg')}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" alt="QR Code">
-            </div>
-            
-            <!-- 核心情感文案 -->
-            <div style="margin-bottom: 18px; position: relative; display: inline-block;"> 
-                 <p style=" 
-                     font-size: 13px; 
-                     color: #546e7a; 
-                     margin: 0; 
-                     font-weight: 600; 
-                     letter-spacing: 1px; 
-                     position: relative; 
-                     z-index: 2; 
-                 "> 
-                     " 微光。" 
-                 </p> 
-                 <div style=" 
-                     position: absolute; 
-                     bottom: 2px; 
-                     left: 0; 
-                     width: 100%; 
-                     height: 6px; 
-                     background: rgba(255, 235, 59, 0.4); 
-                     z-index: 1; 
-                     border-radius: 4px; 
-                 "></div> 
-             </div>
-            
-            <!-- 引导区 -->
-            <div style="
-                background: #f8fcfc;
-                border: 1px solid #e0f2f1;
-                border-radius: 8px;
-                padding: 12px 15px;
-                margin-bottom: 20px;
-                text-align: left;
-                box-shadow: inset 0 0 10px rgba(0, 190, 189, 0.05);
-            ">
-                <div style="display:flex; align-items:center; margin-bottom: 6px; font-size: 13px; color: #333;">
-                    <span style="font-size:14px; margin-right:6px;">1️⃣</span>
-                    关注公号：<strong style="color: #00838f; margin-left:4px;">旷野里的猫-AI</strong>
-                </div>
-                <div style="display:flex; align-items:center; font-size: 13px; color: #333;">
-                    <span style="font-size:14px; margin-right:6px;">2️⃣</span>
-                    后台回复：<strong style="color: #e65100; background:#fff3e0; padding:0 4px; border-radius:4px; margin-left:4px;">能量</strong>
-                </div>
-                
-                <div style="
-                    margin-top: 8px;
-                    padding-top: 8px;
-                    border-top: 1px dashed #cfd8dc;
-                    font-size: 10px;
-                    color: #90a4ae;
-                    display: flex;
-                    align-items: center;
-                ">
-                    <span style="margin-right: 4px;">ℹ️</span>
-                    每日限量补给，留给急需的战友
-                </div>
-            </div>
-
-            <!-- 输入区 -->
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <input type="text" id="redeemKeyInput" placeholder="粘贴今日暗号..." style="
-                    flex: 1;
-                    padding: 10px;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 6px;
-                    font-size: 13px;
-                    outline: none;
-                    transition: border 0.3s;
-                ">
-                <button id="redeemKeyBtn" style="
-                    padding: 0 15px;
-                    background: linear-gradient(135deg, #00bebd 0%, #00897b 100%);
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-weight: bold;
-                    font-size: 13px;
-                    white-space: nowrap;
-                    box-shadow: 0 4px 12px rgba(0, 190, 189, 0.3);
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 4px;
-                ">
-                    🔌 接通信号
-                </button>
-            </div>
-            
-            <div id="redeemStatus" style="font-size: 11px; height: 16px; text-align: left; padding-left: 4px;"></div>
-        </div>
-      </div>
-
     `;
     document.body.appendChild(panel);
     setupDragAndResize(); // Initialize drag and resize functionality
-
-    // === Initialize Local Author Modal Events ===
-    setTimeout(() => {
-        const localModal = document.getElementById('localAuthorModal');
-        const closeLocalModal = document.getElementById('closeLocalAuthorModal');
-        const redeemBtn = document.getElementById('redeemKeyBtn');
-        const redeemInput = document.getElementById('redeemKeyInput');
-        const redeemStatus = document.getElementById('redeemStatus');
-
-        if (closeLocalModal && localModal) {
-            closeLocalModal.onclick = () => {
-                localModal.style.display = 'none';
-            };
-            // Click outside to close
-            localModal.onclick = (e) => {
-                if (e.target === localModal) {
-                    localModal.style.display = 'none';
-                }
-            };
-        }
-
-        if (redeemBtn && redeemInput && redeemStatus) {
-            redeemBtn.onclick = () => {
-                const key = redeemInput.value.trim().toUpperCase();
-                if (!key) {
-                    redeemStatus.innerText = "请输入暗号";
-                    return;
-                }
-                // Simple validation (format check)
-                const validFormat = /^(GM|PARTNER)-\d{4}-[A-Z0-9]{6}$/;
-                if (!validFormat.test(key)) {
-                    if (key === "1" || key.includes("加油")) {
-                         redeemStatus.innerText = "请回复 '1' 获取今日暗号";
-                    } else {
-                         redeemStatus.innerText = "格式错误 (GM-MMDD-XXXXXX)";
-                    }
-                    return;
-                }
-                
-                // UI Feedback
-                redeemBtn.disabled = true;
-                redeemBtn.innerText = "正在接通...";
-
-                // Send message to background to redeem key
-                chrome.runtime.sendMessage({
-                    action: "redeem_daily_key",
-                    key: key
-                }, (res) => {
-                    redeemBtn.disabled = false;
-                    redeemBtn.innerText = "🔌 接通信号塔";
-
-                    if (chrome.runtime.lastError) {
-                        redeemStatus.style.color = '#ff5252';
-                        redeemStatus.innerText = "通信失败: " + chrome.runtime.lastError.message;
-                        return;
-                    }
-
-                    if (res && res.success) {
-                        redeemStatus.style.color = '#00bebd';
-                        redeemStatus.innerText = `连接成功！能量 +${res.addedEnergy || 30}`;
-                        
-                        // Update UI if possible (optional, as page refresh might be needed for some parts)
-                        setTimeout(() => {
-                            if(localModal) localModal.style.display = 'none';
-                            redeemInput.value = '';
-                            redeemStatus.innerText = '';
-                        }, 2000);
-                    } else {
-                        redeemStatus.style.color = '#ff5252';
-                        redeemStatus.innerText = res.error || "激活失败";
-                    }
-                });
-            };
-        }
-    }, 500);
 
 
     // === Initialize Daily Spark ===
@@ -888,14 +699,6 @@ function initWrapper() {
             }, 200);
         };
     }
-
-    // === Initialize Author Connect Modal - Removed ===
-    /* 
-    const authorEntry = document.getElementById('author-connect-entry');
-    const authorModal = document.getElementById('author-modal');
-    ... (Logic removed) ...
-    */
-
 
     try {
         bindEvents();
@@ -2607,7 +2410,7 @@ function renderEnergyExhaustedCard() {
         "“ 只有照顾好自己，才有力气去照顾未来。”",
         "“ 别拿别人的尺子量自己，休息是为了更好地校准。”",
         "“ 这一页翻不过去没关系，我们先折个角，睡了。”",
-        "“ 无论结果如何，这束微光，永远陪着你。”",
+        "“ 无论结果如何，这束Boss Agent，永远陪着你。”",
         "“ 好了，听话。下线。”"
     ];
 
@@ -2650,25 +2453,6 @@ function renderEnergyExhaustedCard() {
                     ${randomQuote}
                 </div>
             </div>
-
-            <!-- 补给按钮 (弱化焦虑，强调选择) -->
-            <button id="btn-refill-energy-card" style="
-                background: linear-gradient(135deg, #81d4fa 0%, #29b6f6 100%);
-                color: #fff;
-                border: none;
-                padding: 10px 24px;
-                border-radius: 25px;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 13px;
-                box-shadow: 0 4px 12px rgba(41, 182, 246, 0.3);
-                transition: all 0.3s ease;
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            ">
-                <span>🔌</span> 我还想再看几个 (去补给)
-            </button>
         </div>
         <style>
             @keyframes float {
@@ -2678,37 +2462,6 @@ function renderEnergyExhaustedCard() {
             }
         </style>
     `;
-    
-    // 绑定点击事件，触发弹窗
-    setTimeout(() => {
-        const btn = document.getElementById('btn-refill-energy-card');
-        if (btn) {
-            btn.onclick = () => {
-                const authorModal = document.getElementById('localAuthorModal');
-                if (authorModal) {
-                    authorModal.style.display = 'flex';
-                    const closeBtn = document.getElementById('closeLocalAuthorModal');
-                    if (closeBtn) {
-                        closeBtn.onclick = () => { authorModal.style.display = 'none'; };
-                    }
-                } else {
-                    alert("请点击插件图标查看详情");
-                }
-            };
-            
-            // 悬停效果
-            btn.onmouseenter = () => { 
-                btn.style.transform = 'translateY(-2px)'; 
-                btn.style.boxShadow = '0 6px 16px rgba(41, 182, 246, 0.4)';
-                btn.style.background = 'linear-gradient(135deg, #4fc3f7 0%, #03a9f4 100%)';
-            };
-            btn.onmouseleave = () => { 
-                btn.style.transform = 'translateY(0)'; 
-                btn.style.boxShadow = '0 4px 12px rgba(41, 182, 246, 0.3)';
-                btn.style.background = 'linear-gradient(135deg, #81d4fa 0%, #29b6f6 100%)';
-            };
-        }
-    }, 100);
 }
 
 // === 核心 AI 请求 ===
@@ -4692,7 +4445,7 @@ function renderFullReport(jobData, aiData) {
                             <!-- 悬停显示的寄语 (纯CSS实现Tooltip) -->
                             <div class="soul-tooltip-text">
                                 "莫愁前路无知己。<br>
-                                微光，送给旷野里的你。<br>
+                                Boss Agent，送给旷野里的你。<br>
                                 <div style='text-align:right; margin-top:4px; font-size:9px; opacity:0.8;'>一个待业半年的大龄青年 敬上</div>"
                             </div>
                         </div>
@@ -5958,60 +5711,6 @@ function renderFullReport(jobData, aiData) {
         if (reportContent) reportContent.appendChild(existingFooter);
     }
 
-    // === 新增：弱化版信号塔 (System Footer) ===
-    // 检查是否已经存在，避免重复
-    let existingAuthorEntry = document.getElementById('author-connect-entry');
-    if (existingAuthorEntry) existingAuthorEntry.remove();
-
-    /* 新的弱化版信号塔 HTML (Restored to Low-key Style) */
-    const authorHtml = `
-        <div id="author-connect-entry" style="
-            text-align: center;
-            margin-top: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 10px;
-            border-top: 1px dashed rgba(0,0,0,0.05);
-        ">
-            <a href="#" id="link-author-modal" style="
-                font-size: 11px;
-                color: #90a4ae;
-                text-decoration: none;
-                border-bottom: 1px dashed #cfd8dc;
-                padding-bottom: 2px;
-                transition: all 0.2s;
-            " 
-            onmouseover="this.style.color='#00bebd'; this.style.borderColor='#00bebd';"
-            onmouseout="this.style.color='#90a4ae'; this.style.borderColor='#cfd8dc';"
-            >
-                📡 连接信号塔 (获取能量)
-            </a>
-        </div>
-    `;
-    
-    // 插入到 report-content 的最底部 (在 Disclaimer 之后)
-    const reportContent = document.getElementById('report-content');
-    if (reportContent) {
-        reportContent.insertAdjacentHTML('beforeend', authorHtml);
-        
-        // 绑定点击事件
-        setTimeout(() => {
-             const link = document.getElementById('link-author-modal');
-             if(link) {
-                 link.onclick = (e) => {
-                     e.preventDefault();
-                     const modal = document.getElementById('localAuthorModal');
-                     if(modal) {
-                         modal.style.display = 'flex';
-                     } else {
-                         alert("请点击插件图标连接信号塔");
-                     }
-                 };
-             }
-        }, 500);
-    }
-    
     // 移除 focus-box (隐藏)
     const focusBox = document.getElementById('focus-box');
     if (focusBox) focusBox.style.display = 'none';

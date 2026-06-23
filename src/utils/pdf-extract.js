@@ -17,7 +17,7 @@ async function extractTextFromPdf(file) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map(item => item.str).join(' ');
+    const pageText = textContent.items.map((item) => item.str).join(' ');
     if (pageText.trim()) {
       textParts.push(pageText);
     }

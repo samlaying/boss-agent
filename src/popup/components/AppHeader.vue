@@ -3,7 +3,7 @@
     <div class="header-row">
       <span class="dot" />
       <h3 class="title">
-        ✨ 微光
+        ✨ Boss Agent
       </h3>
       <span class="badge">PRO</span>
       <span

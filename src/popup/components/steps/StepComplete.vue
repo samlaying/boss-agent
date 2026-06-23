@@ -6,7 +6,7 @@
         <div class="complete-badge">
           ✓
         </div>
-        <h2>配置完成！微光已就绪</h2>
+        <h2>配置完成！Boss Agent已就绪</h2>
         <p class="step-desc">
           你的 AI 求职助手已配置完成，接下来开始使用吧。
         </p>
@@ -22,7 +22,7 @@
         <div class="step-icon">
           ✨
         </div>
-        <h2>微光已就绪</h2>
+        <h2>Boss Agent已就绪</h2>
       </div>
 
       <div class="dashboard-status">
@@ -49,7 +49,7 @@
       </div>
       <div class="usage-step">
         <span class="usage-step-num">2</span>
-        <span>找到感兴趣的岗位，点击微光插件图标</span>
+        <span>找到感兴趣的岗位，点击Boss Agent插件图标</span>
       </div>
       <div class="usage-step">
         <span class="usage-step-num">3</span>
@@ -57,7 +57,7 @@
       </div>
       <div class="usage-step">
         <span class="usage-step-num">4</span>
-        <span>一键投递，微光会自动帮你优化话术</span>
+        <span>一键投递，Boss Agent会自动帮你优化话术</span>
       </div>
     </div>
 

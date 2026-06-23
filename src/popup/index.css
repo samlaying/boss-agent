@@ -1,5 +1,5 @@
 /* ============================================================
-   微光 · 配置向导 - 全局样式
+   Boss Agent · 配置向导 - 全局样式
    Page type: Form / Wizard — completion, confidence, low friction
    ============================================================ */
 
@@ -786,4 +786,32 @@ body {
 
 .wizard-body::-webkit-scrollbar-thumb:hover {
   background: #bbb;
+}
+
+.popup-launcher {
+  width: 280px;
+  padding: var(--wg-space-md);
+  box-sizing: border-box;
+}
+
+.popup-launcher .app-header {
+  margin: 0 0 var(--wg-space-md);
+}
+
+.popup-launcher .primary-btn {
+  width: 100%;
+}
+
+body.boss-agent-onboarding {
+  width: auto;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+body.boss-agent-onboarding .wizard-container {
+  width: min(760px, calc(100vw - 48px));
+  min-height: auto;
+  margin: 48px auto;
+  border-radius: var(--wg-radius);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }

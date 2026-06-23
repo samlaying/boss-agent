@@ -6,7 +6,7 @@
       </div>
       <h2>连接你的 AI 引擎</h2>
       <p class="step-desc">
-        微光需要 DeepSeek API Key 才能为你生成个性化打招呼用语和岗位匹配分析。
+        Boss Agent需要 DeepSeek API Key 才能为你生成个性化打招呼用语和岗位匹配分析。
       </p>
     </div>
 

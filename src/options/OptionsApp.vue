@@ -1,7 +1,7 @@
 <template>
   <div class="options-container">
     <header class="header">
-      <h1>✨ 微光 · 配置中心</h1>
+      <h1>✨ Boss Agent · 配置中心</h1>
       <p class="subtitle">
         简历管理 · 提示词配置 · 模型选择
       </p>
@@ -31,7 +31,7 @@
     <ModelConfig />
 
     <footer class="footer">
-      <p>微光 v3.0 · 你的 AI 求职助手</p>
+      <p>Boss Agent v3.0 · 你的 AI 求职助手</p>
     </footer>
   </div>
 </template>
