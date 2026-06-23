@@ -672,7 +672,9 @@ function initWrapper() {
               <button id="btn-auto-loop" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🔁 自动沟通循环</button>
               <button id="btn-stop-auto-loop" style="flex:1; padding:8px; background:#fff; color:#e53935; border:1px solid #ffcdd2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🛑 停止自动循环</button>
           </div>
-          <!-- 明细日志、岗位简报、云端日志按钮已隐藏 -->
+          <div style="display:flex; gap:8px; margin-top:8px;">
+              <button id="btn-export-auto-brief" style="flex:1; padding:8px; background:#f8fcfc; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🧾 岗位简报</button>
+          </div>
       </div>
 
     `;
