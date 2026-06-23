@@ -2,10 +2,6 @@
 
 console.log("🚀 Boss Agent: Background Service Started");
 
-chrome.action.onClicked.addListener(() => {
-    chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
-});
-
 // 腾讯云 Serverless 代理地址 (请替换为实际部署地址)
 const SERVERLESS_URL = "https://1254102186-4c0oxqya5x.ap-guangzhou.tencentscf.com";
 

@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "pre:edit-write:gateguard-fact-force": {
+      "enabled": false
+    }
+  }
+}

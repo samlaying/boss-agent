@@ -14,7 +14,7 @@ module.exports = (env, argv) => {
     target: 'web',
 
     entry: {
-      onboarding: './src/onboarding/main.js',
+      popup: './src/popup/index.js',
       options: './src/options/main.js',
       background: './src/background/index.js',
       content: './src/content/index.js',
@@ -53,9 +53,9 @@ module.exports = (env, argv) => {
       new VueLoaderPlugin(),
       ...(isProduction ? [new MiniCssExtractPlugin({ filename: '[name].css' })] : []),
       new HtmlWebpackPlugin({
-        template: './src/onboarding/index.html',
-        filename: 'onboarding.html',
-        chunks: ['onboarding'],
+        template: './src/popup/index.html',
+        filename: 'popup.html',
+        chunks: ['popup'],
       }),
       new HtmlWebpackPlugin({
         template: './src/options/index.html',

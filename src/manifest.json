@@ -10,7 +10,10 @@
     "https://api.deepseek.com/*"
   ],
   "options_page": "options.html",
-  "action": {},
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Boss Agent"
+  },
   "background": {
     "service_worker": "background.bundle.js"
   },
