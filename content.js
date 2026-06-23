@@ -673,6 +673,10 @@ function initWrapper() {
               <button id="btn-stop-auto-loop" style="flex:1; padding:8px; background:#fff; color:#e53935; border:1px solid #ffcdd2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🛑 停止自动循环</button>
           </div>
           <div style="display:flex; gap:8px; margin-top:8px;">
+              <button id="btn-custom-greeting" style="flex:1; padding:8px; background:#fff; color:#6a1b9a; border:1px solid #ce93d8; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">💬 自定义打招呼用语</button>
+              <button id="btn-toggle-auto-greeting" style="flex:1; padding:8px; background:#fff; color:#e65100; border:1px solid #ffcc80; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🤖 AI自动打招呼</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
               <button id="btn-export-auto-brief" style="flex:1; padding:8px; background:#f8fcfc; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🧾 岗位简报</button>
           </div>
       </div>
@@ -3099,19 +3103,19 @@ function buildAutoApplyLogCsv(logs) {
 
 function buildAutoApplyBriefCsv(logs) {
     const headers = [
-        "time",
-        "company",
-        "action",
-        "title",
-        "salary",
-        "description",
-        "hr",
-        "hrTitle",
-        "active",
-        "reason",
-        "jobId",
-        "detailUrl",
-        "source"
+        "时间",
+        "公司",
+        "操作",
+        "岗位",
+        "薪资",
+        "描述",
+        "HR",
+        "职位",
+        "活跃",
+        "原因",
+        "岗位ID",
+        "详情链接",
+        "来源"
     ];
     const rows = buildAutoApplyBriefRows(logs).map(item => headers.map(key => csvEscape(item[key])).join(","));
     return [headers.join(","), ...rows].join("\n");
@@ -6077,6 +6081,25 @@ function getJobId(urlOrStr) {
 // 确保初始化
 HistoryManager.init();
 
+function updateAutoGreetingButton() {
+    chrome.storage.local.get(['enableAutoGreeting'], (res) => {
+        const btn = document.getElementById('btn-toggle-auto-greeting');
+        if (!btn) return;
+        const enabled = !!res.enableAutoGreeting;
+        if (enabled) {
+            btn.style.background = '#fff3e0';
+            btn.style.borderColor = '#ff9800';
+            btn.style.color = '#e65100';
+            btn.innerHTML = '🤖 AI自动打招呼 <span style="font-size:10px;background:#ff9800;color:#fff;padding:1px 5px;border-radius:8px;margin-left:3px;">ON</span>';
+        } else {
+            btn.style.background = '#fff';
+            btn.style.borderColor = '#ffcc80';
+            btn.style.color = '#e65100';
+            btn.innerHTML = '🤖 AI自动打招呼';
+        }
+    });
+}
+
 function bindEvents() {
     const p = document.getElementById('boss-copilot-panel');
     
@@ -6147,6 +6170,65 @@ function bindEvents() {
     safeBind('btn-export-auto-log', exportAutoApplyLog);
     safeBind('btn-export-auto-brief', exportAutoApplyBrief);
     safeBind('btn-config-remote-log', configureAutoApplyRemoteLog);
+
+    // === 自定义打招呼用语按钮 ===
+    safeBind('btn-custom-greeting', async () => {
+        const current = await new Promise(r => chrome.storage.local.get(['chatSystemPrompt'], r));
+        const currentPrompt = current.chatSystemPrompt || '你代表求职者。你的风格：自信、专业、简洁。';
+
+        const overlay = document.createElement('div');
+        overlay.id = 'custom-greeting-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2147483651;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
+
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:12px;width:480px;max-height:80vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;">
+                <div style="padding:16px 20px;background:linear-gradient(135deg,#6a1b9a,#8e24aa);color:#fff;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:bold;font-size:14px;">💬 自定义打招呼用语</span>
+                    <button id="custom-greeting-close" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>
+                </div>
+                <div style="padding:20px;flex:1;overflow-y:auto;">
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:bold;">打招呼系统提示词（System Prompt）</label>
+                        <textarea id="custom-greeting-prompt" style="width:100%;height:120px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;" placeholder="你代表求职者。你的风格：自信、专业、简洁。">${currentPrompt}</textarea>
+                        <div style="font-size:11px;color:#999;margin-top:4px;">这段提示词会作为系统指令发送给 AI，用于生成打招呼语。</div>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button id="custom-greeting-cancel" style="padding:8px 16px;background:#f5f5f5;color:#666;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:13px;">取消</button>
+                        <button id="custom-greeting-save" style="padding:8px 16px;background:#6a1b9a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;">保存</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        document.getElementById('custom-greeting-close').onclick = () => overlay.remove();
+        document.getElementById('custom-greeting-cancel').onclick = () => overlay.remove();
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        document.getElementById('custom-greeting-save').onclick = async () => {
+            const newPrompt = document.getElementById('custom-greeting-prompt').value.trim();
+            if (!newPrompt) {
+                alert('提示词不能为空');
+                return;
+            }
+            await new Promise(r => chrome.storage.local.set({ chatSystemPrompt: newPrompt }, r));
+            overlay.remove();
+            showToast('打招呼用语已更新');
+        };
+    });
+
+    // === AI自动打招呼开关按钮 ===
+    safeBind('btn-toggle-auto-greeting', async () => {
+        const current = await new Promise(r => chrome.storage.local.get(['enableAutoGreeting'], r));
+        const newVal = !current.enableAutoGreeting;
+        await new Promise(r => chrome.storage.local.set({ enableAutoGreeting: newVal }, r));
+        updateAutoGreetingButton();
+        showToast(newVal ? 'AI自动打招呼已启用' : 'AI自动打招呼已关闭');
+    });
+
+    // 初始化按钮状态
+    updateAutoGreetingButton();
 
     safeBind('btn-ignore', markAsIgnore, { optional: true });
 
