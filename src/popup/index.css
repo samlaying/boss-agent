@@ -21,6 +21,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html,
+body.boss-agent-popup {
+  width: 400px;
+  min-width: 400px;
+  min-height: 0;
+  max-height: 600px;
+  overflow: hidden;
+}
+
 /* --- Design Tokens --- */
 :root {
   --wg-primary: #00bebd;
@@ -57,11 +66,45 @@ body {
 /* --- Wizard Container --- */
 .wizard-container {
   width: 100%;
-  min-height: 100vh;
+  min-height: 520px;
+  max-height: 600px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--wg-bg);
+}
+
+.dashboard-container {
+  min-height: 0;
+}
+
+.popup-loading {
+  display: grid;
+  width: 400px;
+  min-height: 220px;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: var(--wg-text-light);
+  background: var(--wg-bg);
+  font-size: 11px;
+}
+
+.popup-loading p {
+  margin: 0;
+}
+
+.loading-orbit {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--wg-primary-light);
+  border-top-color: var(--wg-primary);
+  border-radius: 50%;
+  animation: loadingSpin .8s linear infinite;
+}
+
+@keyframes loadingSpin {
+  to { transform: rotate(360deg); }
 }
 
 .wizard-body {

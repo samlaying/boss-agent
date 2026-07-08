@@ -3,16 +3,27 @@
   "name": "Boss Agent",
   "description": "一款带夜视功能的职场翻译机。别怕黑，这里有光。把困难留给 AI，把尊严留给自己。",
   "version": "3.0.14",
-  "permissions": ["storage", "unlimitedStorage", "scripting", "tabs", "activeTab", "notifications"],
+  "minimum_chrome_version": "110",
+  "permissions": ["storage", "unlimitedStorage", "scripting", "tabs"],
   "host_permissions": [
-    "<all_urls>",
     "https://*.zhipin.com/*",
     "https://api.deepseek.com/*"
   ],
+  "optional_host_permissions": ["https://*/*"],
+  "icons": {
+    "16": "icons/icon-16.jpg",
+    "32": "icons/icon-32.jpg",
+    "48": "icons/icon-48.jpg",
+    "128": "icons/icon-128.jpg"
+  },
   "options_page": "options.html",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Boss Agent"
+    "default_title": "Boss Agent",
+    "default_icon": {
+      "16": "icons/icon-16.jpg",
+      "32": "icons/icon-32.jpg"
+    }
   },
   "background": {
     "service_worker": "background.bundle.js"
@@ -31,7 +42,7 @@
     },
     {
       "resources": ["pdf.worker.min.mjs"],
-      "matches": ["<all_urls>"]
+      "matches": ["https://*.zhipin.com/*"]
     }
   ]
 }

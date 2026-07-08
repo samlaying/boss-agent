@@ -22,7 +22,14 @@ module.exports = (env, argv) => {
 
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: '[name].bundle.js',
+      // background/content 被 manifest.json 直接引用，不能加 hash
+      // popup/options 由 HtmlWebpackPlugin 自动注入，可以加 hash
+      filename: (pathData) => {
+        if (pathData.chunk.name === 'popup' || pathData.chunk.name === 'options') {
+          return isProduction ? '[name].[contenthash].bundle.js' : '[name].bundle.js';
+        }
+        return '[name].bundle.js';
+      },
       clean: true,
     },
 
@@ -51,7 +58,7 @@ module.exports = (env, argv) => {
 
     plugins: [
       new VueLoaderPlugin(),
-      ...(isProduction ? [new MiniCssExtractPlugin({ filename: '[name].css' })] : []),
+      ...(isProduction ? [new MiniCssExtractPlugin({ filename: isProduction ? '[name].[contenthash].css' : '[name].css' })] : []),
       new HtmlWebpackPlugin({
         template: './src/popup/index.html',
         filename: 'popup.html',
@@ -64,14 +71,7 @@ module.exports = (env, argv) => {
       }),
       new CopyWebpackPlugin({
         patterns: [
-          { from: 'src/manifest.json', to: 'manifest.json' },
-          { from: 'public', to: 'public', noErrorOnMissing: true },
-          { from: 'style.css', to: 'style.css' },
-          { from: 'variant.js', to: 'variant.js' },
-          { from: 'injected_probe.js', to: 'injected_probe.js' },
-          { from: 'spa_monitor.js', to: 'spa_monitor.js' },
-          { from: 'html2canvas.min.js', to: 'html2canvas.min.js' },
-          { from: 'images', to: 'images', noErrorOnMissing: true },
+          { from: 'public', to: '.' },
           {
             from: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
             to: 'pdf.worker.min.mjs',
@@ -93,6 +93,12 @@ module.exports = (env, argv) => {
       splitChunks: {
         chunks: 'async',
       },
+    },
+
+    // Warn on oversized initial UI bundles. Lazy document parsers and the
+    // dedicated PDF worker are intentionally loaded only after file upload.
+    performance: {
+      assetFilter: (filename) => /\.(?:bundle\.js|css)$/.test(filename),
     },
   };
 };

@@ -10,6 +10,8 @@
     "build:social": "node scripts/build-variants.mjs social",
     "build:dev": "webpack --mode development",
     "build:intern": "node scripts/build-variants.mjs intern",
+    "test": "node --test tests/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage tests/*.test.mjs",
     "zip": "cd dist && zip -r ../boss-agent-extension.zip .",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",

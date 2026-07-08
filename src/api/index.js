@@ -1,4 +1,6 @@
-const DEFAULT_TIMEOUT = 30000;
+import { API_TIMEOUT_DEFAULT } from '../utils/constants.js';
+
+const DEFAULT_TIMEOUT = API_TIMEOUT_DEFAULT;
 
 export async function apiRequest(url, options = {}) {
   const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;

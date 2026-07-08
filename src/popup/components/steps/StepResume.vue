@@ -4,9 +4,11 @@
       <div class="step-icon">
         📄
       </div>
-      <h2>上传你的简历</h2>
+      <h2>上传或粘贴简历</h2>
       <p class="step-desc">
-        Boss Agent会根据简历内容为你生成针对性打招呼用语、分析岗位匹配度。
+        {{ hasAi
+          ? '后续会结合简历和当前岗位，生成更有针对性的沟通话术。'
+          : '我们会根据其中的经历，为你准备一段可以直接使用的开场白。' }}
       </p>
     </div>
 
@@ -97,7 +99,7 @@
         :disabled="!cleanResume"
         @click="handleNext"
       >
-        保存并继续
+        {{ hasAi ? '继续' : '生成专属开场白' }}
       </button>
     </div>
   </div>
@@ -107,9 +109,12 @@
 import { ref, onMounted } from 'vue';
 import { extractTextFromFile } from '../../../utils/pdf-extract.js';
 import { storageGet, storageSet } from '../../../utils/storage.js';
-import { STORAGE_KEYS } from '../../../utils/constants.js';
+import { STORAGE_KEYS, DEBOUNCE_DELAY, TOAST_DURATION } from '../../../utils/constants.js';
 
 const emit = defineEmits(['next', 'prev']);
+defineProps({
+  hasAi: { type: Boolean, default: false },
+});
 
 const rawText = ref('');
 const cleanResume = ref('');
@@ -156,7 +161,7 @@ function onRawTextChange() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     storageSet({ [STORAGE_KEYS.RESUME_PDF_RAW]: rawText.value });
-  }, 500);
+  }, DEBOUNCE_DELAY);
 }
 
 function onCleanChange() {
@@ -164,8 +169,8 @@ function onCleanChange() {
   saveTimer = setTimeout(async () => {
     await saveClean();
     saved.value = true;
-    setTimeout(() => { saved.value = false; }, 2000);
-  }, 500);
+    setTimeout(() => { saved.value = false; }, TOAST_DURATION);
+  }, DEBOUNCE_DELAY);
 }
 
 async function saveClean() {

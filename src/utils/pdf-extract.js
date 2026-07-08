@@ -1,15 +1,11 @@
-import * as pdfjsLib from 'pdfjs-dist';
-import mammoth from 'mammoth';
-
-// 设置 worker 路径
-pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
-
 /**
  * 从 PDF 文件中提取文本
  * @param {File} file - PDF 文件对象
  * @returns {Promise<string>} 提取的文本内容
  */
 async function extractTextFromPdf(file) {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const textParts = [];
@@ -33,6 +29,7 @@ async function extractTextFromPdf(file) {
  * @returns {Promise<string>} 提取的文本内容
  */
 async function extractTextFromWord(file) {
+  const { default: mammoth } = await import('mammoth');
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
   const text = result.value.trim();

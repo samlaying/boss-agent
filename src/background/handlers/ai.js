@@ -1,7 +1,15 @@
 import { storageGet } from '../../utils/storage.js';
-import { STORAGE_KEYS, PRESET_MODELS } from '../../utils/constants.js';
+import {
+  STORAGE_KEYS,
+  PRESET_MODELS,
+  DEFAULT_MODEL_ID,
+  API_TIMEOUT_AI,
+  RESUME_EXTRACT_SYSTEM_PROMPT,
+  ANALYSIS_SYSTEM_PROMPT,
+  DEFAULT_ANALYSIS_PROMPT,
+} from '../../utils/constants.js';
 
-const API_TIMEOUT = 60000; // 60秒超时
+const API_TIMEOUT = API_TIMEOUT_AI;
 
 /**
  * 获取模型配置（预置 + 自定义）
@@ -53,7 +61,7 @@ async function callLLM({ endpoint, apiKey, model, messages }) {
     return content;
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw new Error('请求超时（60秒），请检查网络或换用更快的模型', { cause: err });
+      throw new Error(`请求超时（${API_TIMEOUT / 1000}秒），请检查网络或换用更快的模型`, { cause: err });
     }
     throw err;
   } finally {
@@ -75,14 +83,13 @@ export async function extractResume(payload, _sender) {
 
   if (!apiKey) return { error: '请先在设置中配置 API Key' };
 
-  const modelConfig = await resolveModel('deepseek-v4-flash');
+  const modelConfig = await resolveModel(DEFAULT_MODEL_ID);
   console.log('[AI] 使用模型:', modelConfig.model);
 
   const messages = [
     {
       role: 'system',
-      content:
-        '你是一个简历分析专家。请从用户提供的简历原文中提取关键信息，输出一份精简、结构化的简历。保留：姓名、联系方式、教育背景、实习/工作经历、项目经历、技能。删除冗余描述、重复信息、格式噪音。输出纯文本格式。',
+      content: RESUME_EXTRACT_SYSTEM_PROMPT,
     },
     {
       role: 'user',
@@ -93,7 +100,7 @@ export async function extractResume(payload, _sender) {
   try {
     const result = await callLLM({
       endpoint: modelConfig.endpoint,
-      apiKey,
+      apiKey: modelConfig.apiKey || apiKey,
       model: modelConfig.model,
       messages,
     });
@@ -113,11 +120,12 @@ export async function analyzeMatch(payload, _sender) {
 
   const { [STORAGE_KEYS.API_KEY]: apiKey, [STORAGE_KEYS.ANALYSIS_MODEL]: analysisModelId } =
     await storageGet([STORAGE_KEYS.API_KEY, STORAGE_KEYS.ANALYSIS_MODEL]);
-  if (!apiKey) return { error: '请先在设置中配置 API Key' };
 
-  const modelConfig = await resolveModel(analysisModelId || 'deepseek-v4-flash');
+  const modelConfig = await resolveModel(analysisModelId || DEFAULT_MODEL_ID);
+  const effectiveApiKey = modelConfig.apiKey || apiKey;
+  if (!effectiveApiKey) return { error: '请先在设置中配置 API Key' };
 
-  let userPrompt = promptTemplate || '请分析以下简历与职位的匹配度，给出 0-100 分和简要理由：';
+  let userPrompt = promptTemplate || DEFAULT_ANALYSIS_PROMPT;
   userPrompt = userPrompt
     .replace(/\{\{resume\}\}/g, resume)
     .replace(/\{\{jobTitle\}\}/g, jobTitle || '')
@@ -128,7 +136,7 @@ export async function analyzeMatch(payload, _sender) {
   const messages = [
     {
       role: 'system',
-      content: '你是一个专业的求职顾问。请分析简历与职位的匹配度，给出分数（0-100）和简要分析。',
+      content: ANALYSIS_SYSTEM_PROMPT,
     },
     { role: 'user', content: userPrompt },
   ];
@@ -136,7 +144,7 @@ export async function analyzeMatch(payload, _sender) {
   try {
     const result = await callLLM({
       endpoint: modelConfig.endpoint,
-      apiKey,
+      apiKey: effectiveApiKey,
       model: modelConfig.model,
       messages,
     });

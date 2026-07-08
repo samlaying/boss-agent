@@ -1,4 +1,6 @@
-// content.js - V20.1 (右侧数据源唯一真理版)
+// Feature-complete content runtime.
+/* global html2canvas */
+/* eslint-disable no-unused-vars, no-useless-assignment -- DOM callbacks and template branches are resolved dynamically */
 // console.log("🚀 Boss Agent: V20.1 Single Source of Truth");
 
 // === 开启调试日志 ===
@@ -27,6 +29,16 @@ function isAutoApplyEnabled() {
 
 function isInternshipHardFilterEnabled() {
     return isVariantFeatureEnabled("internshipHardFilter");
+}
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
 }
 
 let isScanning = false;
@@ -66,7 +78,7 @@ const AUTO_APPLY_LOG_MAX = 1000;
 const AUTO_APPLY_REMOTE_LOG_CONFIG_KEY = "autoApplyRemoteLogConfig";
 const AUTO_APPLY_REMOTE_LOG_QUEUE_KEY = "autoApplyRemoteLogQueue";
 const AUTO_APPLY_REMOTE_LOG_QUEUE_MAX = 50;
-const SALARY_PATTERN = /(\d+(?:\.\d+)?\s*(?:[-~—－–至]\s*\d+(?:\.\d+)?)?\s*(?:[kKＫｋ]|万|元\s*[\/／]?\s*[天日]|元\/[天日])(?:\s*·\s*\d+\s*薪)?)|(面议)/i;
+const SALARY_PATTERN = /(\d+(?:\.\d+)?\s*(?:[-~—－–至]\s*\d+(?:\.\d+)?)?\s*(?:[kKＫｋ]|万|元\s*[/／]?\s*[天日]|元\/[天日])(?:\s*·\s*\d+\s*薪)?)|(面议)/i;
 const SALARY_SELECTORS = [
     '.salary',
     '.salary-text',
@@ -1088,7 +1100,9 @@ function collectSalaryCandidates(root = document, options = {}) {
         try {
             const nodes = root.querySelectorAll ? root.querySelectorAll(selector) : [];
             nodes.forEach(el => pushCandidate(el, selector));
-        } catch (e) {}
+        } catch {
+            // Ignore selectors unsupported by the current page DOM.
+        }
     });
 
     const rootText = normalizeAutoApplyText(root.innerText || root.textContent || "");
@@ -1226,7 +1240,9 @@ function collectDescriptionCandidates(root = document, options = {}) {
         try {
             const nodes = root.querySelectorAll ? root.querySelectorAll(selector) : [];
             nodes.forEach(el => pushCandidate(el, selector));
-        } catch (e) {}
+        } catch {
+            // Ignore selectors unsupported by the current page DOM.
+        }
     });
 
     return candidates.sort((a, b) => {
@@ -2526,7 +2542,7 @@ async function doAnalyze(data, signal = null, forceRefresh = false) {
             // 清理 UI (如果还没被调用方清理)
              // 通常 manualAnalyze 会处理，但为了保险：
              // hideAnalyzingOverlay(true, "用户已取消"); // manualAnalyze 已经处理了这个
-             throw new Error("Aborted");
+             throw new Error("Aborted", { cause: e });
         }
 
         console.error("Analyze Error:", e);
@@ -2562,12 +2578,28 @@ async function getCustomGreeting() {
 }
 
 // === 生成打招呼话术 (不做匹配分析) ===
+// 是否走 AI 逐岗生成话术。AI 模式 = 满足以下任一：
+//   1. 侧边栏"AI自动打招呼"开关开启（enableAutoGreeting）；
+//   2. 用户连了自己的 DeepSeek key（computeMode==='custom_key'）；
+//   3. 显式逐岗生成（greetingCount>0）。
+// 标准模式（固定话术）返回 false，调用方应直接用 customGreeting，不发 AI 请求。
+function isAiGreetingMode(computeMode, greetingCount, enableAutoGreeting) {
+    if (enableAutoGreeting) return true;
+    return computeMode === 'custom_key' || (Number(greetingCount) || 0) > 0;
+}
+
 async function generateGreetingFromJob(data, signal = null) {
     if (signal && signal.aborted) throw new Error("Aborted");
 
-    // 读取用户选择的生成条数
-    const countRes = await new Promise(r => chrome.storage.local.get(['greetingCount'], r));
-    const greetingCount = countRes.greetingCount || 3;
+    // 模式判断：非 AI 模式（固定话术）直接返回 customGreeting，避免无意义的 generate_greeting 请求。
+    // AI 模式判定见 isAiGreetingMode（开关 / custom_key / greetingCount>0）；energy 模式下走 serverless，成功后扣 energy。
+    // 没设固定话术时返回空串，由调用方 fallback 到默认话术。
+    const modeRes = await new Promise(r => chrome.storage.local.get(['computeMode', 'greetingCount', 'enableAutoGreeting'], r));
+    if (!isAiGreetingMode(modeRes.computeMode, modeRes.greetingCount, modeRes.enableAutoGreeting)) {
+        return await getCustomGreeting();
+    }
+
+    const greetingCount = Number(modeRes.greetingCount) || 3;
 
     const res = await chrome.runtime.sendMessage({
         action: "generate_greeting",
@@ -2753,7 +2785,9 @@ async function scanNext() {
         // 兼容逻辑：优先使用新字段，没有则回退到旧字段
         filterTitleKeywords = config.filterTitleKeywords || config.filterKeywords || "";
         filterContentKeywords = config.filterContentKeywords || "";
-    } catch(e) {}
+    } catch {
+        // Use the defaults when extension storage is temporarily unavailable.
+    }
 
     // 2. HR 活跃度过滤
     // 如果 HR 活跃度太低（如：半年前、月活跃），直接跳过 AI 分析
@@ -3120,6 +3154,8 @@ function buildAutoApplyLogCsv(logs) {
 }
 
 function buildAutoApplyBriefCsv(logs) {
+    // 中文表头（展示用）与英文 key（buildAutoApplyBriefRows 输出的字段名）必须一一对应、长度相等。
+    // 切勿用 headers 直接当 key 取值——表头是中文而字段是英文 key，会得到 undefined 使 CSV 数据行全空。
     const headers = [
         "时间",
         "公司",
@@ -3135,7 +3171,22 @@ function buildAutoApplyBriefCsv(logs) {
         "详情链接",
         "来源"
     ];
-    const rows = buildAutoApplyBriefRows(logs).map(item => headers.map(key => csvEscape(item[key])).join(","));
+    const keys = [
+        "time",
+        "company",
+        "action",
+        "title",
+        "salary",
+        "description",
+        "hr",
+        "hrTitle",
+        "active",
+        "reason",
+        "jobId",
+        "detailUrl",
+        "source"
+    ];
+    const rows = buildAutoApplyBriefRows(logs).map(item => keys.map(k => csvEscape(item[k])).join(","));
     return [headers.join(","), ...rows].join("\n");
 }
 
@@ -3524,7 +3575,9 @@ async function shouldSkipByFilters(data) {
         shouldFilter = config.filterActiveHr !== false;
         filterTitleKeywords = config.filterTitleKeywords || config.filterKeywords || "";
         filterContentKeywords = config.filterContentKeywords || "";
-    } catch (e) {}
+    } catch {
+        // Use the defaults when extension storage is temporarily unavailable.
+    }
 
     if (shouldFilter && isInactiveHR(data.active)) {
         const reason = data.active ? `💤 不活跃(${data.active})` : `💤 状态未知`;
@@ -4217,7 +4270,7 @@ function bindLlmPolishEvents(jobData) {
     });
 }
 
-function renderFullReport(jobData, aiData) {
+async function renderFullReport(jobData, aiData) {
     // Cache the latest analysis for one-click greeting
     window.lastGlimmerData = { jobData, aiData };
     const autoApplyBtn = document.getElementById('btn-auto-apply');
@@ -4632,7 +4685,7 @@ function renderFullReport(jobData, aiData) {
                           </div>
 
                           <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
-                               <div id="res-reason" style="font-size:13px; color:var(--text-secondary); line-height:1.6; font-weight:500; text-align:justify;">${reason}</div>
+                               <div id="res-reason" style="font-size:13px; color:var(--text-secondary); line-height:1.6; font-weight:500; text-align:justify;">${escapeHtml(reason)}</div>
                                
                                <div id="summary-gap-container" style="display:none; margin-top:8px;">
                                    <div style="font-size:11px; color:#ef5350; font-weight:800; margin-bottom:4px; display:flex; align-items:center;">
@@ -4826,7 +4879,7 @@ function renderFullReport(jobData, aiData) {
                 
                         <!-- 底部小字补充 --> 
                         <div style="font-size:9px; color:${sStyle.text}; opacity:0.9; text-align:center; line-height:1.5;"> 
-                            ${warningText} 
+                            ${escapeHtml(warningText)} 
                         </div> 
                     </div> 
                 `;
@@ -4993,7 +5046,7 @@ function renderFullReport(jobData, aiData) {
                 border-left: 3px solid #e6a23c;
                 line-height: 1.4;
             `;
-            ratDiv.innerHTML = `<span style="font-weight:bold;">💡 话术策略：</span>${scriptRationale}`;
+            ratDiv.innerHTML = `<span style="font-weight:bold;">💡 话术策略：</span>${escapeHtml(scriptRationale)}`;
             
             // 插入到输入框之前
             chatInput.parentNode.insertBefore(ratDiv, chatInput);
@@ -5247,7 +5300,7 @@ function renderFullReport(jobData, aiData) {
                 <div style="font-size:10px; font-weight:700; color:#90a4ae; margin-bottom:6px; letter-spacing:0.5px;">📋 核心研判 (VERDICT)</div>
                 ${keyComments.map(c => {
                     const icon = c.includes('✅') ? '✅' : (c.includes('⚠️') ? '⚠️' : (c.includes('❌') ? '❌' : '🔹'));
-                    const text = c.replace(/^[✅⚠️❌]/, '').trim();
+                    const text = c.replace(/^(?:✅|⚠️|❌)/u, '').trim();
                     return `<div style="font-size:11px; color:#333; margin-bottom:4px; display:flex; align-items:start; line-height:1.4;">
                         <span style="margin-right:6px; font-size:10px; margin-top:1px;">${icon}</span>
                         <span style="flex:1;">${text}</span>
@@ -6060,7 +6113,9 @@ function getJobId(urlOrStr) {
                  const match = canonical.href.match(/job_detail\/([^/?#]+)/);
                  if (match && match[1]) return match[1].replace('.html', '');
              }
-         } catch(e) {}
+         } catch {
+             // Canonical URL is optional.
+         }
     }
 
     try {
@@ -6364,7 +6419,7 @@ async function startCaptureSelection() {
                 // 1. 序列化 SVG
                 const serializer = new XMLSerializer();
                 let source = serializer.serializeToString(originalSvg);
-                if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)){
+                if(!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)){
                     source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
                 }
                 const encoded = encodeURIComponent(source);
@@ -6706,7 +6761,9 @@ async function markAsIgnore() {
                 }
                 fallbackData = cache.lastAnalysisData.jobData;
             }
-        } catch(e) {}
+        } catch {
+            // Cache recovery is best effort.
+        }
     }
 
     // Step 5: 绝境逢生 - 生成伪造ID (基于职位信息)
@@ -6832,7 +6889,9 @@ async function autoGreet(greetingText, options = {}) {
             let absoluteDetail = detailUrl;
             try {
                 absoluteDetail = new URL(detailUrl, window.location.origin).toString();
-            } catch (e) {}
+            } catch {
+                // Fall back to the original detail URL.
+            }
 
             if (!chrome.runtime || !chrome.runtime.id) {
                 throw new Error("Extension context invalidated");

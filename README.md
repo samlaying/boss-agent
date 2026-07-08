@@ -168,7 +168,8 @@ npm install
 npm run build
 ```
 
-构建产物在 `dist/` 目录，直接加载到 Chrome 即可。
+构建产物在 `dist/` 目录。请在 `chrome://extensions` 中只加载 `dist/`，
+不要加载仓库根目录。
 
 ### 常用命令
 
@@ -188,28 +189,27 @@ npm run zip              # 打包 zip
 
 ```
 boss-agent/
-├── manifest.json           # Chrome 扩展配置 (Manifest V3)
-├── background.js           # Service Worker - API 通信 & 核心逻辑
-├── content.js              # 内容脚本 - 注入 Boss直聘页面的主控制器
-├── onboarding.html / onboarding.js # 浏览器页新手引导
-├── injected_probe.js       # Main World 脚本 - 深层数据提取 (Hook)
-├── spa_monitor.js          # SPA 导航监控
-├── html2canvas.min.js      # 截图功能库
-├── style.css               # 注入页面的 UI 样式
-├── server/                 # 云端日志服务端脚本
-├── images/                 # 图片资源
-├── scripts/                # 构建脚本
-├── public/                 # 静态资源 (icons, locales)
-└── src/                    # 源码目录 (Vue 3 组件化)
-    ├── background/         # Service Worker 消息路由
-    ├── content/            # 内容脚本模块
-    ├── onboarding/         # 浏览器页新手引导入口
-    ├── popup/              # 引导组件与共享状态
-    ├── options/            # 设置页面 (Vue 3)
-    ├── utils/              # 共享工具库
-    ├── api/                # API 接口层
-    └── components/         # 共享组件
+├── public/                 # 原样复制到扩展包的静态资源
+│   ├── manifest.json       # Manifest V3 唯一源码
+│   ├── icons/              # 商店及工具栏图标
+│   ├── injected_probe.js   # Main World 数据探测
+│   ├── spa_monitor.js      # SPA 导航监控
+│   └── style.css           # Content Script 样式
+├── src/                    # JavaScript / Vue 唯一源码目录
+│   ├── background/         # Service Worker 唯一入口与消息路由
+│   ├── content/            # Content Script 唯一入口与页面运行时
+│   ├── popup/              # 工具栏弹窗
+│   ├── options/            # 设置页面
+│   ├── utils/              # 共享工具
+│   └── api/                # API 接口层
+├── tests/                  # 构建、权限和安全回归测试
+├── scripts/                # 发布变体构建脚本
+├── server/                 # 可选日志服务
+└── dist/                   # 唯一可加载、可打包、可发布目录（不提交）
 ```
+
+仓库根目录不保存 `manifest.json` 或 bundle。所有 Chrome 运行入口由
+Webpack 从 `src/` 构建，所有静态资源从 `public/` 复制到 `dist/`。
 
 ### 架构设计
 

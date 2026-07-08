@@ -1,5 +1,7 @@
+import { API_KEY_MIN_LENGTH } from './constants.js';
+
 export function isValidApiKey(key) {
-  return typeof key === 'string' && key.startsWith('sk-') && key.length > 10;
+  return typeof key === 'string' && key.startsWith('sk-') && key.length >= API_KEY_MIN_LENGTH;
 }
 
 export function isValidResume(text) {

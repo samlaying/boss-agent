@@ -31,7 +31,7 @@
     <ModelConfig />
 
     <footer class="footer">
-      <p>Boss Agent v3.0 · 你的 AI 求职助手</p>
+      <p>Boss Agent v{{ extensionVersion }} · 你的 AI 求职助手</p>
     </footer>
   </div>
 </template>
@@ -39,11 +39,13 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { getState, updateState } from '../popup/store.js';
+import { DEBOUNCE_DELAY } from '../utils/constants.js';
 import ResumeManager from './components/ResumeManager.vue';
 import PromptConfig from './components/PromptConfig.vue';
 import ModelConfig from './components/ModelConfig.vue';
 
 const apiKey = ref('');
+const extensionVersion = chrome.runtime?.getManifest?.()?.version || '3.0';
 let saveTimer = null;
 
 onMounted(() => {
@@ -55,7 +57,7 @@ function saveApiKey() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     updateState({ apiKey: apiKey.value });
-  }, 500);
+  }, DEBOUNCE_DELAY);
 }
 </script>
 

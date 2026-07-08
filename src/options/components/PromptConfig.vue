@@ -60,7 +60,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../utils/storage.js';
-import { STORAGE_KEYS, DEFAULT_GREETING_PROMPT, DEFAULT_ANALYSIS_PROMPT } from '../../utils/constants.js';
+import { STORAGE_KEYS, DEFAULT_GREETING_PROMPT, DEFAULT_ANALYSIS_PROMPT, DEBOUNCE_DELAY, TOAST_DURATION } from '../../utils/constants.js';
 
 const greetingPrompt = ref('');
 const analysisPrompt = ref('');
@@ -93,8 +93,8 @@ function save() {
       [STORAGE_KEYS.ENABLE_ANALYSIS]: enableAnalysis.value,
     });
     saved.value = true;
-    setTimeout(() => { saved.value = false; }, 2000);
-  }, 500);
+    setTimeout(() => { saved.value = false; }, TOAST_DURATION);
+  }, DEBOUNCE_DELAY);
 }
 </script>
 

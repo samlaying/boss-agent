@@ -90,11 +90,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../../utils/storage.js';
-import { STORAGE_KEYS, PRESET_MODELS, DEFAULT_GREETING_PROMPT } from '../../../utils/constants.js';
+import { STORAGE_KEYS, PRESET_MODELS, DEFAULT_GREETING_PROMPT, DEFAULT_MODEL_ID, DEBOUNCE_DELAY } from '../../../utils/constants.js';
 
 const emit = defineEmits(['next', 'prev']);
 
-const greetingModel = ref('deepseek-v4-flash');
+const greetingModel = ref(DEFAULT_MODEL_ID);
 const greetingPrompt = ref('');
 const customModels = ref([]);
 
@@ -122,7 +122,7 @@ onMounted(async () => {
     STORAGE_KEYS.GREETING_PROMPT,
     STORAGE_KEYS.CUSTOM_MODELS,
   ]);
-  greetingModel.value = data[STORAGE_KEYS.GREETING_MODEL] || 'deepseek-v4-flash';
+  greetingModel.value = data[STORAGE_KEYS.GREETING_MODEL] || DEFAULT_MODEL_ID;
   greetingPrompt.value = data[STORAGE_KEYS.GREETING_PROMPT] || DEFAULT_GREETING_PROMPT;
   customModels.value = data[STORAGE_KEYS.CUSTOM_MODELS] || [];
 });
@@ -133,7 +133,7 @@ function insertVar(v) {
 
 function debouncedSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(save, 500);
+  saveTimer = setTimeout(save, DEBOUNCE_DELAY);
 }
 
 async function save() {

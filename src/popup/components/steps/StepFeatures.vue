@@ -2,197 +2,218 @@
   <div class="step-content">
     <div class="step-header">
       <div class="step-icon">
-        ⚙️
+        ✨
       </div>
-      <h2>选择你要启用的功能</h2>
+      <h2>选择你的沟通方式</h2>
       <p class="step-desc">
-        Boss Agent 支持多种求职辅助模式，按需开启：
+        自动打招呼和岗位简报都会开启，你只需要选择话术如何生成。
       </p>
     </div>
 
-    <!-- 基础：自动打招呼 -->
-    <div class="feature-card active">
-      <div class="feature-card-header">
-        <div class="feature-card-title">
-          <span>💬</span> 自动打招呼
-        </div>
-        <span class="feature-tag">基础</span>
+    <div class="core-benefits">
+      <div>
+        <span>💬</span>
+        <strong>自动打招呼</strong>
+        <small>用你的方式，自然开启沟通</small>
       </div>
-      <div class="feature-card-desc">
-        自动沟通循环，批量向 HR 发送打招呼语，支持自定义打招呼用语。
-      </div>
-    </div>
-
-    <!-- 可选：AI 生成打招呼用语 -->
-    <div
-      class="feature-card"
-      :class="{ active: enableAiGreeting }"
-    >
-      <div class="feature-card-header">
-        <div class="feature-card-title">
-          <span>🤖</span> AI 生成打招呼用语
-        </div>
-        <label class="wg-toggle">
-          <input
-            v-model="enableAiGreeting"
-            type="checkbox"
-          >
-          <span class="wg-toggle-track" />
-        </label>
-      </div>
-      <div class="feature-card-desc">
-        根据岗位 JD 自动生成个性化打招呼用语，提高 HR 回复率。需要配置 API Key。
-      </div>
-      <div
-        v-if="enableAiGreeting"
-        class="feature-card-options"
-      >
-        <div class="radio-group">
-          <label
-            v-for="n in [1, 3, 5]"
-            :key="n"
-            class="radio-item"
-          >
-            <input
-              v-model="greetingCount"
-              type="radio"
-              name="greetingCount"
-              :value="n"
-            >
-            每次生成 {{ n }} 条
-          </label>
-        </div>
+      <div>
+        <span>📋</span>
+        <strong>岗位简报</strong>
+        <small>快速读懂要求、优势与风险</small>
       </div>
     </div>
 
-    <!-- 屏蔽规则 -->
-    <div
-      class="feature-card"
-      :class="{ active: blockRules.length > 0 }"
-    >
-      <div class="feature-card-header">
-        <div class="feature-card-title">
-          <span>🚫</span> 屏蔽不感兴趣的岗位类型
-        </div>
-      </div>
-      <div
-        v-if="blockRules.length > 0"
-        class="feature-card-desc"
-      >
-        已设置 {{ blockRules.length }} 个屏蔽规则：{{ blockRules.join('、') }}
-      </div>
-      <div
-        v-else
-        class="feature-card-desc"
-      >
-        未设置屏蔽规则，点击下方添加
-      </div>
-      <div class="feature-card-options">
-        <div class="tag-container">
-          <span
-            v-for="(rule, idx) in blockRules"
-            :key="idx"
-            class="tag"
-          >
-            {{ rule }}
-            <span
-              class="tag-remove"
-              @click="removeRule(idx)"
-            >×</span>
-          </span>
-        </div>
-        <div class="tag-input-row">
-          <input
-            v-model="newRule"
-            placeholder="输入关键词，如：外包、销售"
-            @keyup.enter="addRule"
-          >
-          <button
-            class="tag-add-btn"
-            @click="addRule"
-          >
-            添加
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Navigation -->
-    <div class="step-nav">
+    <div class="mode-grid">
       <button
-        class="btn-skip"
-        @click="handleSkip"
+        class="mode-card"
+        :class="{ selected: selectedMode === 'standard' }"
+        @click="selectedMode = 'standard'"
       >
-        跳过
+        <span class="mode-radio" />
+        <span class="mode-copy">
+          <strong>标准模式</strong>
+          <b>使用固定话术，开箱即用。</b>
+          <small>我们会根据你的简历准备一条专属开场白，你可以继续修改。</small>
+        </span>
       </button>
+
+      <button
+        class="mode-card"
+        :class="{ selected: selectedMode === 'ai' }"
+        @click="selectedMode = 'ai'"
+      >
+        <span class="mode-radio" />
+        <span class="mode-copy">
+          <span class="mode-title">
+            <strong>AI 个性化模式</strong>
+            <em>推荐</em>
+          </span>
+          <b>结合简历和每个岗位，逐岗生成专属话术。</b>
+          <small>需要连接 DeepSeek，适合希望沟通更有针对性的用户。</small>
+        </span>
+      </button>
+    </div>
+
+    <p class="mode-note">
+      使用方式可随时在完整设置中调整。
+    </p>
+
+    <div class="step-nav">
       <button
         class="btn-next"
         @click="handleNext"
       >
-        保存并继续
+        继续
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { storageGet, storageSet } from '../../../utils/storage.js';
 import { STORAGE_KEYS } from '../../../utils/constants.js';
 
-const emit = defineEmits(['next', 'prev']);
-
-const enableAiGreeting = ref(false);
-const greetingCount = ref(1);
-const blockRules = ref([]);
-const newRule = ref('');
-
-// 开启 AI 时默认选中 1 条
-watch(enableAiGreeting, (val) => {
-  if (val && greetingCount.value === 0) {
-    greetingCount.value = 1;
-  }
-});
+const emit = defineEmits(['next']);
+const selectedMode = ref('standard');
 
 onMounted(async () => {
   const data = await storageGet([
+    STORAGE_KEYS.COMPUTE_MODE,
     STORAGE_KEYS.GREETING_COUNT,
-    STORAGE_KEYS.BLOCK_RULES,
   ]);
-  const saved = data[STORAGE_KEYS.GREETING_COUNT];
-  greetingCount.value = saved != null ? saved : 1;
-  enableAiGreeting.value = saved != null ? saved > 0 : false;
-  blockRules.value = data[STORAGE_KEYS.BLOCK_RULES] || [];
+  if (data[STORAGE_KEYS.COMPUTE_MODE] === 'custom_key'
+      || Number(data[STORAGE_KEYS.GREETING_COUNT] || 0) > 0) {
+    selectedMode.value = 'ai';
+  }
 });
 
-function addRule() {
-  const rule = newRule.value.trim();
-  if (rule && !blockRules.value.includes(rule)) {
-    blockRules.value.push(rule);
-    newRule.value = '';
-    save();
-  }
-}
-
-function removeRule(idx) {
-  blockRules.value.splice(idx, 1);
-  save();
-}
-
-async function save() {
-  await storageSet({
-    [STORAGE_KEYS.GREETING_COUNT]: enableAiGreeting.value ? greetingCount.value : 0,
-    [STORAGE_KEYS.BLOCK_RULES]: blockRules.value,
-  });
-}
-
 async function handleNext() {
-  await save();
-  emit('next', enableAiGreeting.value);
-}
-
-async function handleSkip() {
-  await save();
-  emit('next', enableAiGreeting.value);
+  const hasAi = selectedMode.value === 'ai';
+  await storageSet({
+    [STORAGE_KEYS.COMPUTE_MODE]: hasAi ? 'custom_key' : 'energy',
+    [STORAGE_KEYS.GREETING_COUNT]: hasAi ? 3 : 0,
+  });
+  emit('next', hasAi);
 }
 </script>
+
+<style scoped>
+.core-benefits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.core-benefits div {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--wg-border);
+  border-radius: 10px;
+}
+
+.core-benefits span {
+  grid-row: 1 / 3;
+  font-size: 17px;
+}
+
+.core-benefits strong {
+  color: var(--wg-text);
+  font-size: 11px;
+}
+
+.core-benefits small {
+  color: var(--wg-text-light);
+  font-size: 9px;
+}
+
+.mode-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.mode-card {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 13px;
+  color: inherit;
+  text-align: left;
+  background: #fff;
+  border: 1.5px solid var(--wg-border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.mode-card.selected {
+  background: rgba(0, 190, 189, .05);
+  border-color: var(--wg-primary);
+  box-shadow: 0 0 0 3px var(--wg-primary-light);
+}
+
+.mode-radio {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border: 2px solid #c8d1d4;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.selected .mode-radio {
+  border: 4px solid var(--wg-primary);
+}
+
+.mode-copy,
+.mode-copy b,
+.mode-copy small {
+  display: block;
+}
+
+.mode-copy {
+  flex: 1;
+}
+
+.mode-copy strong {
+  font-size: 13px;
+}
+
+.mode-copy b {
+  margin-top: 5px;
+  color: var(--wg-text-sec);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mode-copy small {
+  margin-top: 3px;
+  color: var(--wg-text-light);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.mode-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mode-title em {
+  padding: 2px 7px;
+  color: var(--wg-primary-dark);
+  background: var(--wg-primary-light);
+  border-radius: 10px;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.mode-note {
+  margin: 10px 0 0;
+  color: var(--wg-text-light);
+  font-size: 9px;
+  text-align: center;
+}
+</style>

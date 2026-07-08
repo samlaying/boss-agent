@@ -1,5 +1,9 @@
 // background.js - 终极修复版 (异步通信 + 安全JSON解析 + 超时重试 + 能量模式)
 
+import { handleMessage } from "./router.js";
+
+/* eslint-disable no-unused-vars -- functions are invoked dynamically by Chrome events and DOM callbacks */
+
 console.log("🚀 Boss Agent: Background Service Started");
 
 chrome.action.onClicked.addListener(() => {
@@ -355,7 +359,7 @@ function maskPII(text) {
 // ===============================================
 // 🛠️ 工具函数：带超时和重试的 Fetch
 // ===============================================
-async function fetchWithRetry(url, options, retries = 3, timeout = 300000) { // 默认超时改为 300s (5分钟) 以匹配云函数
+async function fetchWithRetry(url, options, retries = 3, timeout = 25000) {
     for (let i = 0; i < retries; i++) {
         const controller = new AbortController();
         const id = setTimeout(() => controller.abort(), timeout);
@@ -394,7 +398,7 @@ async function fetchWithRetry(url, options, retries = 3, timeout = 300000) { // 
 
             if (isLastAttempt) {
                 if (error.name === 'AbortError') {
-                    throw new Error(`请求超时(>${timeout/1000}s)，DeepSeek响应过慢或云函数超时`);
+                    throw new Error(`请求超时(>${timeout/1000}s)，DeepSeek响应过慢或云函数超时`, { cause: error });
                 }
                 throw error;
             }
@@ -452,6 +456,16 @@ async function handleAutoApplyRemoteLogUpload(request, sendResponse) {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request?.type) {
+        const result = handleMessage(request, sender);
+        if (result instanceof Promise) {
+            result.then(sendResponse).catch(error => sendResponse({ error: error.message }));
+            return true;
+        }
+        if (result !== undefined) sendResponse(result);
+        return false;
+    }
+
     
     if (request.action === "upload_auto_apply_log") {
         handleAutoApplyRemoteLogUpload(request, sendResponse);
@@ -654,6 +668,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    if (request.action === "generate_onboarding_greeting") {
+        chrome.storage.local.get(['clientId', 'userKey'], async (data) => {
+            try {
+                let clientId = data.clientId;
+                if (!clientId) {
+                    clientId = generateUUID();
+                    await chrome.storage.local.set({ clientId });
+                }
+                const greeting = await generateOnboardingGreeting(
+                    clientId,
+                    request.resume || "",
+                    data.userKey
+                );
+                sendResponse({ success: true, data: greeting });
+            } catch (error) {
+                sendResponse({ success: false, error: error.message });
+            }
+        });
+        return true;
+    }
+
     // === 生成配置接口 ===
     if (request.action === "generate_config") {
         const { resume } = request;
@@ -730,6 +765,49 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // 保持异步通道
     }
 });
+
+async function generateOnboardingGreeting(clientId, resume, userKey) {
+    if (!SERVERLESS_URL || SERVERLESS_URL.includes("service-xxxx")) {
+        throw new Error("话术服务暂时不可用");
+    }
+
+    const maskedResume = maskPII(resume);
+    const sysPrompt = `你是一名懂招聘沟通的求职顾问。请根据用户简历生成一段通用的首次打招呼话术。
+要求：
+1. 只使用简历中真实存在的经历，不虚构信息；
+2. 提炼 1-2 个最有代表性的经验或能力；
+3. 语气自然、真诚、自信，不要模板感；
+4. 不针对具体公司或岗位，方便用户作为固定话术使用；
+5. 控制在 80 个汉字以内；
+6. 只输出最终话术，不要解释。`;
+    const userPrompt = `【用户简历】\n"""${maskedResume || "未提供具体简历内容"}"""`;
+
+    const response = await fetchWithRetry(SERVERLESS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "generate_greeting",
+            clientId,
+            sysPrompt,
+            userPrompt,
+            key: userKey
+        })
+    }, 2, 25000);
+
+    const result = await response.json();
+    if (!result.success) {
+        throw new Error(result.error || "话术生成失败");
+    }
+
+    const value = result.data;
+    const greeting = typeof value === "string"
+        ? value
+        : value?.greeting || value?.content || "";
+    if (!greeting.trim()) {
+        throw new Error("话术生成结果为空");
+    }
+    return greeting.replace(/```/g, "").trim();
+}
 
 // === 辅助函数：获取 ClientID ===
 async function getClientId() {

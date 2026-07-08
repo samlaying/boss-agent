@@ -3,6 +3,8 @@ import { storageGet, storageSet } from '../utils/storage.js';
 import { extractResume, analyzeMatch } from './handlers/ai.js';
 
 export function handleMessage(message, sender) {
+  if (!message?.type) return undefined;
+
   switch (message.type) {
     case MESSAGE_TYPES.PING:
       return { type: MESSAGE_TYPES.PONG, from: 'background' };

@@ -62,11 +62,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../utils/storage.js';
-import { STORAGE_KEYS, PRESET_MODELS } from '../../utils/constants.js';
+import { STORAGE_KEYS, PRESET_MODELS, DEFAULT_MODEL_ID } from '../../utils/constants.js';
 import CustomModelModal from './CustomModelModal.vue';
 
-const greetingModel = ref('deepseek-v4-flash');
-const analysisModel = ref('deepseek-v4-flash');
+const greetingModel = ref(DEFAULT_MODEL_ID);
+const analysisModel = ref(DEFAULT_MODEL_ID);
 const enableAnalysis = ref(false);
 const customModels = ref([]);
 const showModal = ref(false);
@@ -83,8 +83,8 @@ onMounted(async () => {
     STORAGE_KEYS.ENABLE_ANALYSIS,
     STORAGE_KEYS.CUSTOM_MODELS,
   ]);
-  greetingModel.value = data[STORAGE_KEYS.GREETING_MODEL] || 'deepseek-v4-flash';
-  analysisModel.value = data[STORAGE_KEYS.ANALYSIS_MODEL] || 'deepseek-v4-flash';
+  greetingModel.value = data[STORAGE_KEYS.GREETING_MODEL] || DEFAULT_MODEL_ID;
+  analysisModel.value = data[STORAGE_KEYS.ANALYSIS_MODEL] || DEFAULT_MODEL_ID;
   enableAnalysis.value = data[STORAGE_KEYS.ENABLE_ANALYSIS] || false;
   customModels.value = data[STORAGE_KEYS.CUSTOM_MODELS] || [];
 });

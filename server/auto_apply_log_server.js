@@ -5,12 +5,21 @@ const http = require("http");
 const path = require("path");
 
 const PORT = Number(process.env.BOSS_LOG_PORT || 17321);
+const HOST = process.env.BOSS_LOG_HOST || "127.0.0.1";
 const TOKEN = process.env.BOSS_LOG_TOKEN || "";
 const LOG_DIR = process.env.BOSS_LOG_DIR || path.join(__dirname, "logs");
 const LOG_FILE = path.join(LOG_DIR, "auto_apply_logs.jsonl");
 const MAX_BODY_BYTES = Number(process.env.BOSS_LOG_MAX_BODY_BYTES || 2 * 1024 * 1024);
 
 fs.mkdirSync(LOG_DIR, { recursive: true });
+
+function isLoopbackHost(host) {
+    return host === "127.0.0.1" || host === "::1" || host === "localhost";
+}
+
+if (!isLoopbackHost(HOST) && !TOKEN) {
+    throw new Error("BOSS_LOG_TOKEN is required when BOSS_LOG_HOST is not loopback");
+}
 
 function sendJson(res, status, data) {
     res.writeHead(status, {
@@ -91,7 +100,7 @@ const server = http.createServer(async (req, res) => {
     }
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`[boss-agent-log] listening on 0.0.0.0:${PORT}`);
+server.listen(PORT, HOST, () => {
+    console.log(`[boss-agent-log] listening on ${HOST}:${PORT}`);
     console.log(`[boss-agent-log] writing to ${LOG_FILE}`);
 });

@@ -4,9 +4,9 @@
       <div class="step-icon">
         🔑
       </div>
-      <h2>连接你的 AI 引擎</h2>
+      <h2>连接 DeepSeek</h2>
       <p class="step-desc">
-        Boss Agent需要 DeepSeek API Key 才能为你生成个性化打招呼用语和岗位匹配分析。
+        用于逐岗生成专属话术和更深入的岗位分析。
       </p>
     </div>
 
@@ -29,7 +29,7 @@
       </div>
       <div class="input-hint">
         没有 Key？<a
-          href="https://platform.deepseek.com"
+          :href="DEEPSEEK_PLATFORM_URL"
           target="_blank"
         >点击这里获取 →</a>
       </div>
@@ -41,12 +41,6 @@
         @click="$emit('prev')"
       >
         上一步
-      </button>
-      <button
-        class="btn-skip"
-        @click="$emit('next')"
-      >
-        跳过
       </button>
       <button
         class="btn-next"
@@ -62,13 +56,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { storageGet, storageSet } from '../../../utils/storage.js';
-import { STORAGE_KEYS } from '../../../utils/constants.js';
+import { STORAGE_KEYS, API_KEY_MIN_LENGTH, DEEPSEEK_PLATFORM_URL, DEBOUNCE_DELAY } from '../../../utils/constants.js';
 
-const emit = defineEmits(['next']);
+const emit = defineEmits(['next', 'prev']);
 
 const apiKey = ref('');
 
-const isValid = computed(() => apiKey.value.trim().length >= 8);
+const isValid = computed(() => apiKey.value.trim().length >= API_KEY_MIN_LENGTH);
 
 onMounted(async () => {
   const data = await storageGet([STORAGE_KEYS.API_KEY]);
@@ -83,7 +77,7 @@ function onInput() {
   clearTimeout(_timer);
   _timer = setTimeout(() => {
     storageSet({ [STORAGE_KEYS.API_KEY]: apiKey.value.trim() });
-  }, 500);
+  }, DEBOUNCE_DELAY);
 }
 
 async function handleNext() {

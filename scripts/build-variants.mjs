@@ -1,11 +1,11 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distDir = path.join(rootDir, "dist");
+const webpackDistDir = path.join(rootDir, ".variant-build");
 
 const variants = {
     social: {
@@ -40,25 +40,13 @@ if (unknownModes.length > 0) {
     process.exit(1);
 }
 
-const includePaths = [
-    "manifest.json",
-    "variant.js",
-    "background.js",
-    "content.js",
-    "onboarding.html",
-    "onboarding.js",
-    "style.css",
-    "html2canvas.min.js",
-    "injected_probe.js",
-    "spa_monitor.js",
-    "scf_bootstrap",
-    "images",
-    "README.md",
-    "DISCLAIMER.md",
-    "CHANGELOG.md"
-];
-
 await mkdir(distDir, { recursive: true });
+const buildResult = spawnSync(
+    process.platform === "win32" ? "npx.cmd" : "npx",
+    ["webpack", "--mode", "production", "--output-path", webpackDistDir],
+    { cwd: rootDir, stdio: "inherit" }
+);
+if (buildResult.status !== 0) process.exit(buildResult.status || 1);
 
 for (const mode of modes) {
     const variant = variants[mode];
@@ -69,10 +57,8 @@ for (const mode of modes) {
     await rm(zipPath, { force: true });
     await mkdir(outputDir, { recursive: true });
 
-    for (const relativePath of includePaths) {
-        const source = path.join(rootDir, relativePath);
-        if (!existsSync(source)) continue;
-        await cp(source, path.join(outputDir, relativePath), { recursive: true });
+    for (const entry of await readdir(webpackDistDir)) {
+        await cp(path.join(webpackDistDir, entry), path.join(outputDir, entry), { recursive: true });
     }
 
     await writeVariantFile(path.join(outputDir, "variant.js"), variant);
@@ -83,6 +69,7 @@ for (const mode of modes) {
     console.log(`  unpacked: ${path.relative(rootDir, outputDir)}`);
     console.log(`  zip:      ${path.relative(rootDir, zipPath)}`);
 }
+await rm(webpackDistDir, { recursive: true, force: true });
 
 async function writeVariantFile(filePath, variant) {
     const payload = {

@@ -88,7 +88,7 @@
 import { ref, onMounted } from 'vue';
 import { extractTextFromFile } from '../../utils/pdf-extract.js';
 import { storageGet, storageSet } from '../../utils/storage.js';
-import { STORAGE_KEYS, MESSAGE_TYPES } from '../../utils/constants.js';
+import { STORAGE_KEYS, MESSAGE_TYPES, DEBOUNCE_DELAY, TOAST_DURATION } from '../../utils/constants.js';
 import { sendToBackground } from '../../utils/message.js';
 
 const rawText = ref('');
@@ -134,7 +134,7 @@ function onRawTextChange() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     storageSet({ [STORAGE_KEYS.RESUME_PDF_RAW]: rawText.value });
-  }, 500);
+  }, DEBOUNCE_DELAY);
 }
 
 async function extractResume() {
@@ -172,8 +172,8 @@ function onCleanChange() {
       [STORAGE_KEYS.RESUME]: cleanResume.value,
     });
     saved.value = true;
-    setTimeout(() => { saved.value = false; }, 2000);
-  }, 500);
+    setTimeout(() => { saved.value = false; }, TOAST_DURATION);
+  }, DEBOUNCE_DELAY);
 }
 </script>
 

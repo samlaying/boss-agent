@@ -117,6 +117,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { TEST_CONNECTION_MAX_TOKENS } from '../../utils/constants.js';
 
 const props = defineProps({ models: { type: Array, default: () => [] } });
 const emit = defineEmits(['close', 'save']);
@@ -130,8 +131,9 @@ const canAdd = computed(() =>
   newModel.value.name && newModel.value.endpoint && newModel.value.apiKey && newModel.value.model
 );
 
-function addModel() {
+async function addModel() {
   if (!canAdd.value) return;
+  if (!(await ensureEndpointPermission(newModel.value.endpoint))) return;
   const id = 'custom_' + Date.now();
   localModels.value.push({ id, ...newModel.value });
   newModel.value = { name: '', endpoint: '', apiKey: '', model: '' };
@@ -146,6 +148,7 @@ async function testConnection() {
   testing.value = true;
   testResult.value = null;
   try {
+    if (!(await ensureEndpointPermission(newModel.value.endpoint))) return;
     const response = await fetch(`${newModel.value.endpoint}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -155,7 +158,7 @@ async function testConnection() {
       body: JSON.stringify({
         model: newModel.value.model,
         messages: [{ role: 'user', content: 'hi' }],
-        max_tokens: 5,
+        max_tokens: TEST_CONNECTION_MAX_TOKENS,
       }),
     });
     if (response.ok) {
@@ -168,6 +171,30 @@ async function testConnection() {
   } finally {
     testing.value = false;
   }
+}
+
+async function ensureEndpointPermission(endpoint) {
+  let url;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    testResult.value = { ok: false, message: '❌ Endpoint 不是有效 URL' };
+    return false;
+  }
+  if (url.protocol !== 'https:') {
+    testResult.value = { ok: false, message: '❌ Endpoint 必须使用 HTTPS' };
+    return false;
+  }
+
+  const origin = `${url.origin}/*`;
+  const granted = await chrome.permissions.contains({ origins: [origin] });
+  if (granted) return true;
+
+  const approved = await chrome.permissions.request({ origins: [origin] });
+  if (!approved) {
+    testResult.value = { ok: false, message: '❌ 未授予该 API 域名的访问权限' };
+  }
+  return approved;
 }
 
 function save() {
