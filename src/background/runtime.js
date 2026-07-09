@@ -970,6 +970,8 @@ async function handleDirectCall(apiKey, systemPrompt, resume, jobText, hrName, b
     // 模型改用配置中心所选（analysis），未配置/未命中回退默认 deepseek-v4-flash
     const modelCfg = await resolveModel('analysis');
     const modelName = (modelCfg && modelCfg.model) || "deepseek-v4-flash";
+    const endpoint = (modelCfg && modelCfg.endpoint) || "https://api.deepseek.com";
+    const authKey = (modelCfg && modelCfg.apiKey) || apiKey;
 
     const payload = {
         model: modelName,
@@ -988,11 +990,11 @@ async function handleDirectCall(apiKey, systemPrompt, resume, jobText, hrName, b
     }
 
     try {
-        const response = await fetchWithRetry("https://api.deepseek.com/chat/completions", {
+        const response = await fetchWithRetry(`${endpoint.replace(/\/+$/, '')}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
+                "Authorization": `Bearer ${authKey}`
             },
             body: JSON.stringify(payload),
             signal: controller.signal // 绑定信号
@@ -1108,6 +1110,8 @@ async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobTex
     // 模型改用配置中心所选（greeting），未配置/未命中回退默认 deepseek-v4-flash
     const modelCfg = await resolveModel('greeting');
     const modelName = (modelCfg && modelCfg.model) || "deepseek-v4-flash";
+    const endpoint = (modelCfg && modelCfg.endpoint) || "https://api.deepseek.com";
+    const authKey = (modelCfg && modelCfg.apiKey) || apiKey;
 
     const payload = {
         model: modelName,
@@ -1124,11 +1128,11 @@ async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobTex
     }
 
     try {
-        const response = await fetchWithRetry("https://api.deepseek.com/chat/completions", {
+        const response = await fetchWithRetry(`${endpoint.replace(/\/+$/, '')}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`
+                "Authorization": `Bearer ${authKey}`
             },
             body: JSON.stringify(payload),
             signal: controller.signal

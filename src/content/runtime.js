@@ -6305,8 +6305,8 @@ function bindEvents() {
 
     // === 自定义打招呼用语按钮 ===
     safeBind('btn-custom-greeting', async () => {
-        const current = await new Promise(r => chrome.storage.local.get(['chatSystemPrompt'], r));
-        const currentPrompt = current.chatSystemPrompt || '你代表求职者。你的风格：自信、专业、简洁。';
+        const current = await new Promise(r => chrome.storage.local.get(['greetingPrompt'], r));
+        const currentPrompt = current.greetingPrompt || '你代表求职者。你的风格：自信、专业、简洁。';
 
         const overlay = document.createElement('div');
         overlay.id = 'custom-greeting-overlay';
@@ -6344,7 +6344,7 @@ function bindEvents() {
                 alert('提示词不能为空');
                 return;
             }
-            await new Promise(r => chrome.storage.local.set({ chatSystemPrompt: newPrompt }, r));
+            await new Promise(r => chrome.storage.local.set({ greetingPrompt: newPrompt }, r));
             overlay.remove();
             showToast('打招呼用语已更新');
         };
