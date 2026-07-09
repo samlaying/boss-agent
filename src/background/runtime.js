@@ -1,6 +1,7 @@
 // background.js - 终极修复版 (异步通信 + 安全JSON解析 + 超时重试 + 能量模式)
 
 import { handleMessage } from "./router.js";
+import { getAnalysisSystemPrompt, getGreetingSystemPrompt, resolveModel } from "./config.js";
 
 /* eslint-disable no-unused-vars -- functions are invoked dynamically by Chrome events and DOM callbacks */
 
@@ -489,8 +490,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const { jobText, hrName, bossTitle, greetingCount } = request;
 
         // 并行获取所有配置
-        chrome.storage.local.get(['apiKey', 'systemPrompt', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
+        chrome.storage.local.get(['apiKey', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
             try {
+                // systemPrompt 改读配置中心的 analysisPrompt（经 runtimeConfig，空则下方 prepareSystemPrompt 用默认）
+                const dataSystemPrompt = await getAnalysisSystemPrompt();
+
                 // 0. 初始化 Client ID
                 let clientId = data.clientId;
                 if (!clientId) {
@@ -500,7 +504,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 // 1. 确定计算模式 (默认 energy)
                 const computeMode = data.computeMode || 'energy';
-                
+
                 // 2. 模式分支
                 if (computeMode === 'custom_key') {
                     // === 模式 A: 自有 Key 直连 ===
@@ -508,7 +512,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         sendResponse({ success: false, error: "请先在插件配置中输入 DeepSeek API Key" });
                         return;
                     }
-                    await handleDirectCall(data.apiKey, data.systemPrompt, data.resume, jobText, hrName, bossTitle, sendResponse, sender.tab.id, greetingCount);
+                    await handleDirectCall(data.apiKey, dataSystemPrompt, data.resume, jobText, hrName, bossTitle, sendResponse, sender.tab.id, greetingCount);
                 } else {
                     // 检查能量 (分析职位，扣 1 点)
                     const energy = data.energyCount !== undefined ? data.energyCount : 3;
@@ -516,7 +520,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         sendResponse({ success: false, error: "ENERGY_EXHAUSTED" });
                         return;
                     }
-                    await handleServerlessCall(clientId, data.systemPrompt, data.resume, jobText, hrName, bossTitle, sendResponse, sender.tab.id, data.userKey, greetingCount);
+                    await handleServerlessCall(clientId, dataSystemPrompt, data.resume, jobText, hrName, bossTitle, sendResponse, sender.tab.id, data.userKey, greetingCount);
                 }
 
             } catch (error) {
@@ -533,8 +537,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log("💬 收到打招呼生成请求...");
         const { jobText, hrName, bossTitle, greetingCount } = request;
 
-        chrome.storage.local.get(['apiKey', 'chatSystemPrompt', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
+        chrome.storage.local.get(['apiKey', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
             try {
+                const dataChatPrompt = await getGreetingSystemPrompt();
+
                 let clientId = data.clientId;
                 if (!clientId) {
                     clientId = generateUUID();
@@ -550,7 +556,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     await handleDirectGreetingCall(
                         data.apiKey,
-                        data.chatSystemPrompt,
+                        dataChatPrompt,
                         data.resume,
                         jobText,
                         hrName,
@@ -567,7 +573,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     await handleServerlessGreetingCall(
                         clientId,
-                        data.chatSystemPrompt,
+                        dataChatPrompt,
                         data.resume,
                         jobText,
                         hrName,
@@ -958,8 +964,12 @@ async function handleDirectCall(apiKey, systemPrompt, resume, jobText, hrName, b
 
     const userPrompt = constructAnalyzeUserPrompt(resume, jobText, hrName, bossTitle);
 
+    // 模型改用配置中心所选（analysis），未配置/未命中回退默认 deepseek-v4-flash
+    const modelCfg = await resolveModel('analysis');
+    const modelName = (modelCfg && modelCfg.model) || "deepseek-v4-flash";
+
     const payload = {
-        model: "deepseek-v4-flash",
+        model: modelName,
         messages: [
             { role: "system", content: sysPrompt },
             { role: "user", content: userPrompt }
@@ -1092,8 +1102,12 @@ async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobTex
     const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt, greetingCount);
     const userPrompt = constructGreetingUserPrompt(resume, jobText, hrName, bossTitle, greetingCount);
 
+    // 模型改用配置中心所选（greeting），未配置/未命中回退默认 deepseek-v4-flash
+    const modelCfg = await resolveModel('greeting');
+    const modelName = (modelCfg && modelCfg.model) || "deepseek-v4-flash";
+
     const payload = {
-        model: "deepseek-v4-flash",
+        model: modelName,
         messages: [
             { role: "system", content: sysPrompt },
             { role: "user", content: userPrompt }
