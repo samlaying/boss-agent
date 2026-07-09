@@ -916,7 +916,13 @@ function constructAnalyzeUserPrompt(resume, jobText, hrName, bossTitle) {
 }
 
 // === 辅助函数：构建打招呼 Prompt ===
-function constructGreetingUserPrompt(resume, jobText, hrName, bossTitle) {
+function constructGreetingUserPrompt(resume, jobText, hrName, bossTitle, greetingCount = 1) {
+    // greetingCount 控制生成几条候选话术：1 → 单段（向后兼容旧调用方），>1 → 多条，用 ||| 分隔，
+    // 由 content 端 pickGreetingCandidate 随机挑一条发送。clamp 到 [1,5]，与 SCRIPT_STYLES_MAP 对齐。
+    const count = Math.max(1, Math.min(5, Number(greetingCount) || 1));
+    const instruction = count > 1
+        ? `请生成 ${count} 条风格各异、简洁自然的打招呼话术（每条 1-3 句），各条之间用 "|||" 分隔，只输出话术本身，不要编号、不要 JSON、不要解释。`
+        : `请生成 1 段简洁自然的打招呼话术（1-3 句），只输出文本，不要 JSON，不要解释。`;
     return `
 【求职者简历】：
 """${resume || "（未提供简历，请基于通用背景生成）"}"""
@@ -926,7 +932,7 @@ function constructGreetingUserPrompt(resume, jobText, hrName, bossTitle) {
 职位详情：
 """${jobText}"""
 
-请生成 1 段简洁自然的打招呼话术（1-3 句），只输出文本，不要 JSON，不要解释。
+${instruction}
 `.trim();
 }
 
@@ -1067,9 +1073,9 @@ async function handleServerlessCall(clientId, systemPrompt, resume, jobText, hrN
 }
 
 // === 处理直连打招呼调用 ===
-async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId) {
-    const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt);
-    const userPrompt = constructGreetingUserPrompt(resume, jobText, hrName, bossTitle);
+async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId, greetingCount = 1) {
+    const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt, greetingCount);
+    const userPrompt = constructGreetingUserPrompt(resume, jobText, hrName, bossTitle, greetingCount);
 
     const payload = {
         model: "deepseek-v4-flash",
@@ -1121,8 +1127,8 @@ async function handleDirectGreetingCall(apiKey, chatSystemPrompt, resume, jobTex
 }
 
 // === 处理 Serverless 打招呼调用 ===
-async function handleServerlessGreetingCall(clientId, chatSystemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId, userKey) {
-    const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt);
+async function handleServerlessGreetingCall(clientId, chatSystemPrompt, resume, jobText, hrName, bossTitle, sendResponse, tabId, userKey, greetingCount = 1) {
+    const sysPrompt = prepareChatSystemPrompt(chatSystemPrompt, greetingCount);
 
     if (!SERVERLESS_URL || SERVERLESS_URL.includes("service-xxxx")) {
         console.warn("⚠️ Serverless URL 未配置");
@@ -1137,7 +1143,7 @@ async function handleServerlessGreetingCall(clientId, chatSystemPrompt, resume, 
 
     try {
         const maskedResume = maskPII(resume);
-        const userPrompt = constructGreetingUserPrompt(maskedResume, jobText, hrName, bossTitle);
+        const userPrompt = constructGreetingUserPrompt(maskedResume, jobText, hrName, bossTitle, greetingCount);
 
         const response = await fetchWithRetry(SERVERLESS_URL, {
             method: "POST",
@@ -1209,8 +1215,15 @@ function prepareSystemPrompt(userSystemPrompt, greetingCount = 3) {
     return sysPrompt;
 }
 
-function prepareChatSystemPrompt(chatSystemPrompt) {
-    return chatSystemPrompt || DEFAULT_CHAT_SYSTEM_PROMPT;
+function prepareChatSystemPrompt(chatSystemPrompt, greetingCount = 1) {
+    // 默认 1：兼容未传 greetingCount 的旧调用方（生成单条）。
+    // 注意 analyze 路径的 prepareSystemPrompt 默认 3（opening_scripts 多风格），两条路径语义不同，默认值差异是有意的。
+    const base = chatSystemPrompt || DEFAULT_CHAT_SYSTEM_PROMPT;
+    const count = Math.max(1, Math.min(5, Number(greetingCount) || 1));
+    if (count <= 1) return base;
+    // count>1 时与 user prompt 对齐：默认 system prompt 写的是"生成一段"，
+    // 不追加会与 user 的"生成 N 条"自相矛盾，让模型困惑。
+    return `${base}\n\n本次请生成 ${count} 条风格各异的开场白候选，各条用 "|||" 分隔。`;
 }
 
 // === 默认 LLM 配置 (小米 mimo) ===

@@ -75,6 +75,9 @@ const AUTO_APPLY_BLOCKED_TITLE_KEYWORDS = [
 ];
 const AUTO_APPLY_LOG_KEY = "autoApplyActionLog";
 const AUTO_APPLY_LOG_MAX = 1000;
+// 跨标签页停止信号：循环停止时写入时间戳，后台由 openInNewTab 打开的沟通页
+// 据此判断"pendingGreeting 是停止前残留"并中止自动发送，避免停止不同步。
+const AUTO_APPLY_STOP_AT_KEY = "autoApplyStoppedAt";
 const AUTO_APPLY_REMOTE_LOG_CONFIG_KEY = "autoApplyRemoteLogConfig";
 const AUTO_APPLY_REMOTE_LOG_QUEUE_KEY = "autoApplyRemoteLogQueue";
 const AUTO_APPLY_REMOTE_LOG_QUEUE_MAX = 50;
@@ -2588,6 +2591,19 @@ function isAiGreetingMode(computeMode, greetingCount, enableAutoGreeting) {
     return computeMode === 'custom_key' || (Number(greetingCount) || 0) > 0;
 }
 
+// 从 AI 返回的文本里解析候选话术并随机挑一条。
+// greetingCount>1 时 background 要求 AI 用 "|||" 分隔返回多条；count=1 时是单条文本。
+// serverless 路径可能未剥离 markdown 代码块，这里一并兜底。
+function pickGreetingCandidate(raw) {
+    // 去掉可能的 markdown 代码块：``` / ```json / ```text 等（含语言标识与紧跟换行），
+    // 否则残留的 "json" 等前缀会污染最终发给 HR 的话术。
+    const text = String(raw || '').replace(/```\w*\n?/g, '').trim();
+    if (!text) return '';
+    const candidates = text.split(/\|\|\|/).map(s => s.trim()).filter(Boolean);
+    if (candidates.length === 0) return '';
+    return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 async function generateGreetingFromJob(data, signal = null) {
     if (signal && signal.aborted) throw new Error("Aborted");
 
@@ -2612,7 +2628,7 @@ async function generateGreetingFromJob(data, signal = null) {
     if (signal && signal.aborted) throw new Error("Aborted");
 
     if (res && res.success && res.data) {
-        return String(res.data).trim();
+        return pickGreetingCandidate(res.data);
     }
 
     const msg = (res && res.error) ? res.error : "未知错误";
@@ -3439,6 +3455,13 @@ function stopAutoApplyLoop(finalStatusText = "") {
             reason: finalStatusText || "manual stop",
             source: "auto_loop"
         });
+        // === 跨标签页同步停止信号 ===
+        // 投递列表页只持有本页内存态(isAutoApplying)，但循环已用 openInNewTab 打开了
+        // 若干后台沟通页，它们的 checkPendingGreeting 仍会自动发送。这里：
+        // 1) 写入停止时间戳 → 后台沟通页据此中止"停止前残留"的 pendingGreeting；
+        // 2) 清除残留 pendingGreeting → 阻止停止后新打开的沟通页再拾取发送。
+        chrome.storage.local.set({ [AUTO_APPLY_STOP_AT_KEY]: Date.now() });
+        chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
     }
 }
 
@@ -7092,6 +7115,35 @@ function tryOpenChatPanel() {
     return false;
 }
 
+// 纯函数：停止时间戳是否晚于 pendingGreeting 创建时间。
+// 晚于 → 该 pending 是"用户停止前的残留"，后台沟通页不得发送。
+function isStoppedAfterPending(stoppedAt, pendingTime) {
+    return !!(stoppedAt && pendingTime && Number(stoppedAt) > Number(pendingTime));
+}
+
+// 异步包装：从 storage 读取跨页停止信号，判断当前 pending 是否应被中止。
+async function isAutoApplyStoppedAfter(pendingTime) {
+    try {
+        const data = await new Promise(r => chrome.storage.local.get([AUTO_APPLY_STOP_AT_KEY], r));
+        return isStoppedAfterPending(data && data[AUTO_APPLY_STOP_AT_KEY], pendingTime);
+    } catch (e) {
+        return false;
+    }
+}
+
+// 跨页停止时清理 + 记日志的统一出口，供 checkPendingGreeting 各中止点复用。
+function abortPendingByStop(data, reason) {
+    console.log("🛑 [BossDebug] 检测到循环已停止，跨页同步中止发送:", reason);
+    showToast("🛑 已停止，未发送该话术", 2500);
+    appendAutoApplyLog("pending_aborted_by_stop", data.pendingJobMeta || {}, {
+        jobId: data.pendingJobId,
+        reason: `循环已停止：${reason}`,
+        source: "pending_recovery"
+    });
+    chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+    closeChatDialog();
+}
+
 async function checkPendingGreeting() {
     try {
         const data = await new Promise(r => chrome.storage.local.get(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta'], r));
@@ -7108,6 +7160,12 @@ async function checkPendingGreeting() {
                 source: "pending_recovery"
             });
             chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+            return;
+        }
+
+        // 跨页停止门控 #1：用户已在投递列表页停止循环，且本 pending 是停止前残留 → 立即中止
+        if (await isAutoApplyStoppedAfter(data.pendingGreetingTime)) {
+            abortPendingByStop(data, "启动时检测到停止信号");
             return;
         }
 
@@ -7133,6 +7191,11 @@ async function checkPendingGreeting() {
             );
             if (!chatInput && retries === 20) {
                 tryOpenChatPanel();
+            }
+            // 跨页停止门控 #2：寻找输入框(最长 20s)期间用户点停止 → 提前中止，无需等满
+            if (retries > 0 && retries % 15 === 0 && await isAutoApplyStoppedAfter(data.pendingGreetingTime)) {
+                abortPendingByStop(data, "寻找输入框期间检测到停止信号");
+                return;
             }
             if (chatInput && chatInput.offsetParent !== null) {
                 console.log("✅ [BossDebug] 找到输入框:", chatInput);
@@ -7184,6 +7247,13 @@ async function checkPendingGreeting() {
                 }
                 sendBtn = null;
                 await new Promise(r => setTimeout(r, 300));
+            }
+
+            // 跨页停止门控 #3（关键）：发送前最后一道校验。用户可能在话术已填入、
+            // 等待发送按钮期间才点停止，此处必须拦截，否则停止后仍会发出话术。
+            if (await isAutoApplyStoppedAfter(data.pendingGreetingTime)) {
+                abortPendingByStop(data, "发送前检测到停止信号");
+                return;
             }
 
             if (!sendBtn) {
