@@ -270,7 +270,7 @@ test('decideLegacyMigration: 新 key 空且旧 key 有值 → 搬运', () => {
   const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
   const r = decide({
     analysisPrompt: '', greetingPrompt: '',
-    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', migrated: false,
+    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', configMigratedV1: false,
   });
   assert.equal(r.analysisPrompt, '旧分析');
   assert.equal(r.greetingPrompt, '旧话术');
@@ -281,7 +281,7 @@ test('decideLegacyMigration: 新 key 已有值 → 不覆盖', () => {
   const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
   const r = decide({
     analysisPrompt: '新分析', greetingPrompt: '新话术',
-    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', migrated: false,
+    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', configMigratedV1: false,
   });
   assert.equal(r.analysisPrompt, undefined);
   assert.equal(r.greetingPrompt, undefined);
@@ -290,7 +290,7 @@ test('decideLegacyMigration: 新 key 已有值 → 不覆盖', () => {
 
 test('decideLegacyMigration: 已迁移 → 全空、不动作', () => {
   const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
-  const r = decide({ analysisPrompt: '', greetingPrompt: '', systemPrompt: 'x', chatSystemPrompt: 'y', migrated: true });
+  const r = decide({ analysisPrompt: '', greetingPrompt: '', systemPrompt: 'x', chatSystemPrompt: 'y', configMigratedV1: true });
   assert.deepEqual(r, {});
 });
 ```
@@ -307,15 +307,17 @@ Expected: 3 个新测试 FAIL（`decideLegacyMigration not found`），Task 2 �
 ```js
 // 迁移决策纯函数：老 key(systemPrompt/chatSystemPrompt) → 新 key(analysisPrompt/greetingPrompt)。
 // 仅当新 key 为空且未迁移时搬运；已迁移则什么都不做。返回需要写入的字段。
+// 注意：用字面量键（非 STORAGE_KEYS.*），因为单测用 extractFunction 沙箱隔离求值，
+// 沙箱内 STORAGE_KEYS 不在作用域；字面量键与 migrateLegacyConfig 经 storageGet 返回的键一致。
 function decideLegacyMigration(stored) {
-    const migrated = stored && stored[STORAGE_KEYS.CONFIG_MIGRATED] === true;
+    const migrated = stored && stored.configMigratedV1 === true;
     if (migrated) return {};
     const out = { shouldMark: true };
-    if (!stored[STORAGE_KEYS.ANALYSIS_PROMPT] && stored.systemPrompt) {
-        out[STORAGE_KEYS.ANALYSIS_PROMPT] = stored.systemPrompt;
+    if (!stored.analysisPrompt && stored.systemPrompt) {
+        out.analysisPrompt = stored.systemPrompt;
     }
-    if (!stored[STORAGE_KEYS.GREETING_PROMPT] && stored.chatSystemPrompt) {
-        out[STORAGE_KEYS.GREETING_PROMPT] = stored.chatSystemPrompt;
+    if (!stored.greetingPrompt && stored.chatSystemPrompt) {
+        out.greetingPrompt = stored.chatSystemPrompt;
     }
     return out;
 }
