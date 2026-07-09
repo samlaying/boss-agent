@@ -668,6 +668,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    // === 打开配置中心 (options.html) ===
+    // content script 无 openOptionsPage 权限，统一委托到这里打开。
+    if (request.action === "open_options") {
+        chrome.runtime.openOptionsPage(() => {
+            if (chrome.runtime.lastError) {
+                chrome.tabs.create({ url: chrome.runtime.getURL("options.html") }, () => {
+                    sendResponse({ success: true });
+                });
+            } else {
+                sendResponse({ success: true });
+            }
+        });
+        return true;
+    }
+
     if (request.action === "generate_onboarding_greeting") {
         chrome.storage.local.get(['clientId', 'userKey'], async (data) => {
             try {
