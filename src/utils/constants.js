@@ -30,7 +30,6 @@ export const STORAGE_KEYS = {
   ANALYSIS_MODEL: 'analysisModel',
   CUSTOM_MODELS: 'customModels',
   SETUP_COMPLETED: 'setupCompleted',
-  CONFIG_MIGRATED: 'configMigratedV1',
   GREETING_COUNT: 'greetingCount',
   COMPUTE_MODE: 'computeMode',
   CUSTOM_GREETING: 'customGreeting',
