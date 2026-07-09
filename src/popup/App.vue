@@ -17,10 +17,7 @@
       @open-settings="openConfigCenter"
     />
 
-    <DashboardView
-      v-if="isDashboard"
-      @reconfigure="startWizard"
-    />
+    <DashboardView v-if="isDashboard" />
 
     <!-- Progress Bar (wizard mode only) -->
     <WizardProgress
@@ -119,11 +116,6 @@ function goPrev() {
   if (idx > 0) {
     currentStep.value = list[idx - 1];
   }
-}
-
-function startWizard() {
-  isDashboard.value = false;
-  currentStep.value = 'features';
 }
 
 async function handleComplete() {

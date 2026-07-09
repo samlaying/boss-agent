@@ -1,11 +1,14 @@
 // background.js - 终极修复版 (异步通信 + 安全JSON解析 + 超时重试 + 能量模式)
 
 import { handleMessage } from "./router.js";
-import { getAnalysisSystemPrompt, getGreetingSystemPrompt, resolveModel } from "./config.js";
+import { getAnalysisSystemPrompt, getGreetingSystemPrompt, resolveModel, migrateLegacyConfig } from "./config.js";
 
 /* eslint-disable no-unused-vars -- functions are invoked dynamically by Chrome events and DOM callbacks */
 
 console.log("🚀 Boss Agent: Background Service Started");
+
+// 一次性迁移老用户配置（旧 systemPrompt/chatSystemPrompt → analysisPrompt/greetingPrompt）。幂等、只复制不删旧 key。
+migrateLegacyConfig().catch((e) => console.warn('config migration failed:', e));
 
 chrome.action.onClicked.addListener(() => {
     chrome.tabs.create({ url: chrome.runtime.getURL("popup.html") });
