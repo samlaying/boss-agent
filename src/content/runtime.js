@@ -1,6 +1,7 @@
 // Feature-complete content runtime.
 /* global html2canvas */
 /* eslint-disable no-unused-vars, no-useless-assignment -- DOM callbacks and template branches are resolved dynamically */
+import { openConfigCenter } from '../utils/open-config.js';
 // console.log("🚀 Boss Agent: V20.1 Single Source of Truth");
 
 // === 开启调试日志 ===
@@ -408,9 +409,25 @@ function getRandomQuote() {
     return HealingQuotes[Math.floor(Math.random() * HealingQuotes.length)];
 }
 
+// 只读配置摘要：模型 / 模式 / 能量。仅展示，编辑请去配置中心。
+async function renderConfigSummary() {
+    const el = document.getElementById('boss-config-summary');
+    if (!el) return;
+    try {
+        const d = await new Promise((r) => chrome.storage.local.get(
+            ['greetingModel', 'computeMode', 'energyCount'], r));
+        const mode = d.computeMode === 'custom_key' ? '自有Key' : '能量';
+        const energy = (d.computeMode === 'custom_key') ? '' : ` · 能量${d.energyCount ?? 0}`;
+        const model = d.greetingModel || '默认';
+        el.innerText = `模型: ${model} · 模式: ${mode}${energy}`;
+    } catch (e) {
+        el.innerText = '';
+    }
+}
+
 function initWrapper() {
     if(document.getElementById('boss-copilot-panel')) return;
-    
+
     const css = document.createElement('style');
     css.innerHTML = `
         .boss-scanning{border:2px solid #00bebd!important;background:#e0f7fa!important}
@@ -658,7 +675,10 @@ function initWrapper() {
               <button id="btn-minimize" class="icon-btn" title="最小化">➖</button>
           </div>
       </div>
-      
+
+      <!-- 只读配置摘要：模型 / 模式 / 能量 -->
+      <div id="boss-config-summary" style="font-size:11px;color:#90a4ae;padding:2px 12px 6px;"></div>
+
       <div class="panel-body" style="padding:15px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:var(--bg-primary);">
 
           <!-- 上部：雷达与身份 -->
@@ -694,6 +714,9 @@ function initWrapper() {
           <div style="display:flex; gap:8px; margin-top:8px;">
               <button id="btn-export-auto-brief" style="flex:1; padding:8px; background:#f8fcfc; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🧾 岗位简报</button>
           </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+              <button id="btn-open-options" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">⚙ 设置</button>
+          </div>
       </div>
 
     `;
@@ -720,6 +743,9 @@ function initWrapper() {
     } catch (e) {
         console.error("[BossError] bindEvents failed:", e);
     }
+
+    // 渲染只读配置摘要（模型 / 模式 / 能量）
+    renderConfigSummary();
 
     // === Event Delegation for Dynamic Content (Tabs & Buttons) ===
     panel.addEventListener('click', async (e) => {
@@ -6264,6 +6290,14 @@ function bindEvents() {
         }
         stopAutoApplyLoop();
         showToast("已停止自动沟通循环");
+    });
+    // ⚙ 设置 → 打开配置中心（共享 util；content 环境自动委托 background 的 open_options）
+    safeBind('btn-open-options', function () {
+        if (typeof openConfigCenter === 'function') {
+            openConfigCenter();
+        } else {
+            chrome.runtime.sendMessage({ action: 'open_options' });
+        }
     });
     safeBind('btn-export-auto-log', exportAutoApplyLog);
     safeBind('btn-export-auto-brief', exportAutoApplyBrief);
