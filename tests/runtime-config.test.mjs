@@ -50,3 +50,31 @@ test('pickModelById: id 为空或未命中 → null（由调用方回退默认�
   assert.equal(pick('not-exist', PRESETS, []), null);
   assert.equal(pick(undefined, PRESETS, [{ id: 'x' }]), null);
 });
+
+test('decideLegacyMigration: 新 key 空且旧 key 有值 → 搬运', () => {
+  const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
+  const r = decide({
+    analysisPrompt: '', greetingPrompt: '',
+    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', migrated: false,
+  });
+  assert.equal(r.analysisPrompt, '旧分析');
+  assert.equal(r.greetingPrompt, '旧话术');
+  assert.equal(r.shouldMark, true);
+});
+
+test('decideLegacyMigration: 新 key 已有值 → 不覆盖', () => {
+  const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
+  const r = decide({
+    analysisPrompt: '新分析', greetingPrompt: '新话术',
+    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', migrated: false,
+  });
+  assert.equal(r.analysisPrompt, undefined);
+  assert.equal(r.greetingPrompt, undefined);
+  assert.equal(r.shouldMark, true); // 仍标记完成，避免反复进入
+});
+
+test('decideLegacyMigration: 已迁移 → 全空、不动作', () => {
+  const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
+  const r = decide({ analysisPrompt: '', greetingPrompt: '', systemPrompt: 'x', chatSystemPrompt: 'y', migrated: true });
+  assert.deepEqual(r, {});
+});
