@@ -55,7 +55,7 @@ test('decideLegacyMigration: 新 key 空且旧 key 有值 → 搬运', () => {
   const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
   const r = decide({
     analysisPrompt: '', greetingPrompt: '',
-    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', migrated: false,
+    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', configMigratedV1: false,
   });
   assert.equal(r.analysisPrompt, '旧分析');
   assert.equal(r.greetingPrompt, '旧话术');
@@ -66,7 +66,7 @@ test('decideLegacyMigration: 新 key 已有值 → 不覆盖', () => {
   const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
   const r = decide({
     analysisPrompt: '新分析', greetingPrompt: '新话术',
-    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', migrated: false,
+    systemPrompt: '旧分析', chatSystemPrompt: '旧话术', configMigratedV1: false,
   });
   assert.equal(r.analysisPrompt, undefined);
   assert.equal(r.greetingPrompt, undefined);
@@ -75,6 +75,6 @@ test('decideLegacyMigration: 新 key 已有值 → 不覆盖', () => {
 
 test('decideLegacyMigration: 已迁移 → 全空、不动作', () => {
   const decide = loadFn('src/background/config.js', 'decideLegacyMigration');
-  const r = decide({ analysisPrompt: '', greetingPrompt: '', systemPrompt: 'x', chatSystemPrompt: 'y', migrated: true });
+  const r = decide({ analysisPrompt: '', greetingPrompt: '', systemPrompt: 'x', chatSystemPrompt: 'y', configMigratedV1: true });
   assert.deepEqual(r, {});
 });
