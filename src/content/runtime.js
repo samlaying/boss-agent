@@ -6299,9 +6299,10 @@ function bindEvents() {
             chrome.runtime.sendMessage({ action: 'open_options' });
         }
     });
-    safeBind('btn-export-auto-log', exportAutoApplyLog);
+    // 这两个按钮仅在特定变体面板中存在；当前面板未渲染它们，标 optional 避免无谓告警。
+    safeBind('btn-export-auto-log', exportAutoApplyLog, { optional: true });
     safeBind('btn-export-auto-brief', exportAutoApplyBrief);
-    safeBind('btn-config-remote-log', configureAutoApplyRemoteLog);
+    safeBind('btn-config-remote-log', configureAutoApplyRemoteLog, { optional: true });
 
     // === 自定义打招呼用语按钮 ===
     safeBind('btn-custom-greeting', async () => {
