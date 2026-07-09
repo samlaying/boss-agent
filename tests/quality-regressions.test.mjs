@@ -44,18 +44,22 @@ test('popup routes first-time users to onboarding and returning users to a dedic
   assert.match(app, /v-if="isLoading"/);
   assert.match(app, /<DashboardView[\s\S]*v-if="isDashboard"/);
   assert.match(app, /STORAGE_KEYS\.SETUP_COMPLETED/);
+  // Task 6: 齿轮设置入口打开配置中心，不再重放向导
+  assert.match(app, /openConfigCenter/);
+  assert.match(app, /@open-settings="openConfigCenter"/);
   assert.match(html, /class="boss-agent-popup"/);
   assert.ok(existsSync(new URL('../src/popup/views/DashboardView.vue', import.meta.url)));
 });
 
-test('returning dashboard provides status, primary action, settings, and onboarding reset', () => {
+test('returning dashboard provides status, primary action, and settings (wizard is first-run only)', () => {
   const dashboard = read('src/popup/views/DashboardView.vue');
 
   assert.match(dashboard, /配置状态/);
   assert.match(dashboard, /打开 Boss 直聘/);
   assert.match(dashboard, /打开完整设置/);
-  assert.match(dashboard, /重新运行新手引导/);
-  assert.match(dashboard, /emit\(['"]reconfigure['"]\)/);
+  // Task 6: 「重新运行新手引导」已移除，向导仅首次进入；设置走配置中心
+  assert.doesNotMatch(dashboard, /重新运行新手引导/);
+  assert.doesNotMatch(dashboard, /reconfigure/);
 });
 
 test('onboarding mode choice clearly separates fixed and per-job AI greetings', () => {

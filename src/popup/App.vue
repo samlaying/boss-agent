@@ -14,7 +14,7 @@
   >
     <AppHeader
       :show-settings="isDashboard"
-      @open-settings="startWizard"
+      @open-settings="openConfigCenter"
     />
 
     <DashboardView
@@ -63,6 +63,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { storageGet, storageSet } from '../utils/storage.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
+import { openConfigCenter } from '../utils/open-config.js';
 
 import AppHeader from './components/AppHeader.vue';
 import WizardProgress from './components/WizardProgress.vue';

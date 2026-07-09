@@ -9,7 +9,7 @@
       <span
         v-if="showSettings"
         class="settings-btn"
-        title="重新配置"
+        title="打开设置"
         @click="$emit('open-settings')"
       >⚙️</span>
     </div>

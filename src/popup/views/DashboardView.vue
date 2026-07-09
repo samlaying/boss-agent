@@ -44,10 +44,6 @@
           <span>⚙️</span>
           打开完整设置
         </button>
-        <button @click="emit('reconfigure')">
-          <span>↺</span>
-          重新运行新手引导
-        </button>
       </div>
     </section>
 
@@ -66,8 +62,6 @@ import {
   STORAGE_KEYS,
   ZHIPIN_JOB_URL,
 } from '../../utils/constants.js';
-
-const emit = defineEmits(['reconfigure']);
 
 const apiKey = ref('');
 const resume = ref('');
@@ -268,7 +262,7 @@ function openOptions() {
 
 .secondary-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-top: 8px;
 }
