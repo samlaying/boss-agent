@@ -52,8 +52,11 @@ let autoApplyController = null;
 let autoApplyLastActivityAt = 0;
 let autoApplyRefreshCount = 0;
 let autoApplyLoadAttempts = 0;
+let autoApplySubmittedCount = 0;
+let autoApplyLastRestCount = 0;
 let autoApplyLogWriteQueue = Promise.resolve();
 let autoApplyRemoteLogQueue = Promise.resolve();
+let enableConsumerJobFilter = true;
 
 const AUTO_APPLY_MAX_REFRESH_ATTEMPTS = 3;
 const AUTO_APPLY_BLOCKED_TITLE_KEYWORDS = [
@@ -79,9 +82,21 @@ const AUTO_APPLY_LOG_MAX = 1000;
 // 跨标签页停止信号：循环停止时写入时间戳，后台由 openInNewTab 打开的沟通页
 // 据此判断"pendingGreeting 是停止前残留"并中止自动发送，避免停止不同步。
 const AUTO_APPLY_STOP_AT_KEY = "autoApplyStoppedAt";
+const AUTO_APPLY_PANEL_STATUS_KEY = "autoApplyPanelStatus";
+const AUTO_APPLY_PANEL_STATUS_MAX_AGE = 10 * 60 * 1000;
 const AUTO_APPLY_REMOTE_LOG_CONFIG_KEY = "autoApplyRemoteLogConfig";
 const AUTO_APPLY_REMOTE_LOG_QUEUE_KEY = "autoApplyRemoteLogQueue";
 const AUTO_APPLY_REMOTE_LOG_QUEUE_MAX = 50;
+const DEFAULT_GREETING_PROMPT = '你代表求职者。你的风格：自信、专业、简洁。';
+const PANEL_CONFIG_SYNC_KEYS = [
+    'greetingModel',
+    'computeMode',
+    'energyCount',
+    'greetingCount',
+    'enableAutoGreeting',
+    'greetingPrompt',
+    'customGreeting'
+];
 const SALARY_PATTERN = /(\d+(?:\.\d+)?\s*(?:[-~—－–至]\s*\d+(?:\.\d+)?)?\s*(?:[kKＫｋ]|万|元\s*[/／]?\s*[天日]|元\/[天日])(?:\s*·\s*\d+\s*薪)?)|(面议)/i;
 const SALARY_SELECTORS = [
     '.salary',
@@ -414,12 +429,14 @@ async function renderConfigSummary() {
     const el = document.getElementById('boss-config-summary');
     if (!el) return;
     try {
-        const d = await new Promise((r) => chrome.storage.local.get(
-            ['greetingModel', 'computeMode', 'energyCount'], r));
+        const d = await new Promise((r) => chrome.storage.local.get(PANEL_CONFIG_SYNC_KEYS, r));
         const mode = d.computeMode === 'custom_key' ? '自有Key' : '能量';
         const energy = (d.computeMode === 'custom_key') ? '' : ` · 能量${d.energyCount ?? 0}`;
         const model = d.greetingModel || '默认';
-        el.innerText = `模型: ${model} · 模式: ${mode}${energy}`;
+        const aiMode = isAiGreetingMode(d.computeMode, d.greetingCount, d.enableAutoGreeting) ? 'AI开' : '固定话术';
+        const fixedGreeting = d.customGreeting ? '固定已设' : '固定默认';
+        const promptState = d.greetingPrompt && d.greetingPrompt !== DEFAULT_GREETING_PROMPT ? '提示词已改' : '提示词默认';
+        el.innerText = `模型: ${model} · 模式: ${mode}${energy} · ${aiMode} · ${fixedGreeting} · ${promptState}`;
     } catch (e) {
         el.innerText = '';
     }
@@ -715,6 +732,9 @@ function initWrapper() {
               <button id="btn-export-auto-brief" style="flex:1; padding:8px; background:#f8fcfc; color:#006064; border:1px solid #b2ebf2; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🧾 岗位简报</button>
           </div>
           <div style="display:flex; gap:8px; margin-top:8px;">
+              <button id="btn-toggle-consumer-filter" style="flex:1; padding:8px; background:#fff; color:#5e35b1; border:1px solid #d1c4e9; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">🚫 屏蔽 C 端岗位</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
               <button id="btn-open-options" style="flex:1; padding:8px; background:#fff; color:#00796b; border:1px solid #b2dfdb; border-radius:var(--radius-md); font-weight:bold; cursor:pointer; font-size:12px; transition:all 0.2s;">⚙ 设置</button>
           </div>
       </div>
@@ -746,6 +766,9 @@ function initWrapper() {
 
     // 渲染只读配置摘要（模型 / 模式 / 能量）
     renderConfigSummary();
+    bindPanelConfigSync();
+    bindAutoApplyStatusSync();
+    restoreAutoApplyStatus();
 
     // === Event Delegation for Dynamic Content (Tabs & Buttons) ===
     panel.addEventListener('click', async (e) => {
@@ -1612,7 +1635,7 @@ ${text}
 // 等待右侧加载同步
 async function waitForSync(targetTitle, targetCompany) {
     let retries = 0;
-    while(retries < 25) { 
+    while(retries < 30) {
         const d = getDetailData();
         // 核心：用右侧抓到的标题，去匹配左侧目标标题
         // 兼容模糊匹配：Boss有时候左侧写"Java"，右侧写"高级Java工程师"
@@ -1630,7 +1653,7 @@ async function waitForSync(targetTitle, targetCompany) {
         if (titleMatch) {
             return d; 
         }
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 300));
         retries++;
     }
     return getDetailData(); 
@@ -2606,15 +2629,97 @@ async function getCustomGreeting() {
     });
 }
 
+const GREETING_IMAGE_PATHS = {
+    byte: 'images/lin-chenglie-resume-non-byte.png',
+    baidu: 'images/lin-chenglie-resume-non-baidu.png',
+    other: 'images/lin-chenglie-resume.png'
+};
+
+const GREETING_RESUME_PATHS = {
+    byte: 'resumes/lin-resume-byte.md',
+    baidu: 'resumes/lin-resume-baidu.md',
+    other: 'resumes/lin-resume-other.md'
+};
+
+const CONSUMER_JOB_KEYWORDS = [
+    'c端', 'c to c', '消费者', '用户增长', '用户运营', '社区运营', '内容运营',
+    '电商运营', '直播运营', '短视频', 'app产品', '移动端产品', '用户产品', 'to c'
+];
+
+function getGreetingRoute(data = {}) {
+    const text = String([data.detailTitle, data.text, data.jobTags].filter(Boolean).join(' ')).toLowerCase();
+    const company = String(data.company || '').toLowerCase();
+    const consumerHit = CONSUMER_JOB_KEYWORDS.find(keyword => text.includes(keyword));
+    if (enableConsumerJobFilter && consumerHit) return { skip: true, reason: `🚫 C端岗位过滤: ${consumerHit}` };
+    if (company.includes('字节') || company.includes('bytedance') || company.includes('抖音')) {
+        return { skip: false, imagePath: GREETING_IMAGE_PATHS.byte, resumePath: GREETING_RESUME_PATHS.byte, label: '字节版简历' };
+    }
+    if (company.includes('百度') || company.includes('baidu')) {
+        return { skip: false, imagePath: GREETING_IMAGE_PATHS.baidu, resumePath: GREETING_RESUME_PATHS.baidu, label: '百度版简历' };
+    }
+    return { skip: false, imagePath: GREETING_IMAGE_PATHS.other, resumePath: GREETING_RESUME_PATHS.other, label: '通用B端简历' };
+}
+
+async function getGreetingResume(route) {
+    try {
+        const response = await fetch(chrome.runtime.getURL(route.resumePath));
+        return response.ok ? await response.text() : '';
+    } catch (e) {
+        console.warn('路由简历加载失败:', e);
+        return '';
+    }
+}
+
+// 固定图片：内置在插件中，不依赖用户配置，也不上传到插件服务器。
+async function getFixedGreetingImage(imagePath = GREETING_IMAGE_PATHS.other) {
+    try {
+        const response = await fetch(chrome.runtime.getURL(imagePath));
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+        return { name: imagePath.split('/').pop(), dataUrl };
+    } catch (e) {
+        console.warn('固定图片加载失败:', e);
+        return null;
+    }
+}
+
+function dataUrlToFile(dataUrl, filename = 'greeting-image.png') {
+    const match = String(dataUrl || '').match(/^data:([^;,]+)?(?:;base64)?,(.*)$/);
+    if (!match) return null;
+    const bytes = atob(match[2]);
+    const buffer = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) buffer[i] = bytes.charCodeAt(i);
+    return new File([buffer], filename, { type: match[1] || 'image/png' });
+}
+
+async function uploadFixedGreetingImage(imageOverride = null) {
+    const image = imageOverride || await getFixedGreetingImage();
+    if (!image || !image.dataUrl) return false;
+    const input = Array.from(document.querySelectorAll('input[type="file"]'))
+        .find(el => el.offsetParent !== null || !el.disabled);
+    if (!input) return false;
+    const file = dataUrlToFile(image.dataUrl, image.name || 'greeting-image.png');
+    if (!file) return false;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    return true;
+}
+
 // === 生成打招呼话术 (不做匹配分析) ===
-// 是否走 AI 逐岗生成话术。AI 模式 = 满足以下任一：
-//   1. 侧边栏"AI自动打招呼"开关开启（enableAutoGreeting）；
-//   2. 用户连了自己的 DeepSeek key（computeMode==='custom_key'）；
-//   3. 显式逐岗生成（greetingCount>0）。
-// 标准模式（固定话术）返回 false，调用方应直接用 customGreeting，不发 AI 请求。
+// 是否走 AI 逐岗生成话术。
+// 侧边栏"AI自动打招呼"开关是最终开关：关闭时固定发送 customGreeting，不发 AI 请求。
 function isAiGreetingMode(computeMode, greetingCount, enableAutoGreeting) {
-    if (enableAutoGreeting) return true;
-    return computeMode === 'custom_key' || (Number(greetingCount) || 0) > 0;
+    // private/lin-resume 专用版本固定使用 AI 逐岗话术，不受面板开关影响。
+    return true;
 }
 
 // 从 AI 返回的文本里解析候选话术并随机挑一条。
@@ -2634,7 +2739,7 @@ async function generateGreetingFromJob(data, signal = null) {
     if (signal && signal.aborted) throw new Error("Aborted");
 
     // 模式判断：非 AI 模式（固定话术）直接返回 customGreeting，避免无意义的 generate_greeting 请求。
-    // AI 模式判定见 isAiGreetingMode（开关 / custom_key / greetingCount>0）；energy 模式下走 serverless，成功后扣 energy。
+    // AI 模式由侧边栏 enableAutoGreeting 控制；greetingCount 只在 AI 开启后决定生成几条候选。
     // 没设固定话术时返回空串，由调用方 fallback 到默认话术。
     const modeRes = await new Promise(r => chrome.storage.local.get(['computeMode', 'greetingCount', 'enableAutoGreeting'], r));
     if (!isAiGreetingMode(modeRes.computeMode, modeRes.greetingCount, modeRes.enableAutoGreeting)) {
@@ -2642,13 +2747,17 @@ async function generateGreetingFromJob(data, signal = null) {
     }
 
     const greetingCount = Number(modeRes.greetingCount) || 3;
+    const route = getGreetingRoute(data);
+    if (route.skip) return '';
+    const routedResume = await getGreetingResume(route);
 
     const res = await chrome.runtime.sendMessage({
         action: "generate_greeting",
         jobText: `${data.text.substring(0, 2900)}\n【薪资信息】：${data.salary || "面议"}`,
         hrName: data.hr,
         bossTitle: data.hrTitle,
-        greetingCount
+        greetingCount,
+        resume: routedResume
     });
 
     if (signal && signal.aborted) throw new Error("Aborted");
@@ -2710,7 +2819,7 @@ async function scanNext() {
         });
         
         // 2. 等待加载
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
         
         // 3. 重新获取列表
         const newCards = Array.from(document.querySelectorAll('.job-card-wrapper, .job-card-box'));
@@ -2781,8 +2890,8 @@ async function scanNext() {
             
             card.style.opacity = "0.5";
             
-            // 随机停留 7-12 秒
-            const delay = 7000 + Math.random() * 5000;
+            // 随机停留 8-15 秒
+            const delay = 8000 + Math.random() * 7000;
             await new Promise(r => setTimeout(r, delay));
             scanNext();
             return;
@@ -2810,7 +2919,7 @@ async function scanNext() {
         card.setAttribute('data-reason', internshipFilter.reason);
         card.style.opacity = "0.5";
 
-        const delay = 5000 + Math.random() * 5000;
+        const delay = 8000 + Math.random() * 7000;
         await new Promise(r => setTimeout(r, delay));
         scanNext();
         return;
@@ -2842,8 +2951,8 @@ async function scanNext() {
         const reason = newData.active ? `💤 不活跃(${newData.active})` : `💤 状态未知`;
         card.setAttribute('data-reason', reason);
         
-        // 随机停留 5-10 秒，模拟人类操作 (原为1-3秒)
-        const delay = 5000 + Math.random() * 5000;
+        // 随机停留 8-15 秒，模拟人类操作
+        const delay = 8000 + Math.random() * 7000;
         await new Promise(r => setTimeout(r, delay));
         scanNext();
         return;
@@ -2863,8 +2972,8 @@ async function scanNext() {
             card.classList.add('boss-inactive');
             card.setAttribute('data-reason', `🚫 标题: ${hitKw}`);
             
-            // 随机停留 5-10 秒 (原为1-3秒)
-            const delay = 5000 + Math.random() * 5000;
+            // 随机停留 8-15 秒
+            const delay = 8000 + Math.random() * 7000;
             await new Promise(r => setTimeout(r, delay));
             scanNext();
             return;
@@ -2883,8 +2992,8 @@ async function scanNext() {
             card.classList.add('boss-inactive');
             card.setAttribute('data-reason', `🚫 内容: ${hitKw}`);
             
-            // 随机停留 5-10 秒 (原为1-3秒)
-            const delay = 5000 + Math.random() * 5000;
+            // 随机停留 8-15 秒
+            const delay = 8000 + Math.random() * 7000;
             await new Promise(r => setTimeout(r, delay));
             scanNext();
             return;
@@ -2980,9 +3089,9 @@ async function scanNext() {
     }
 
     // === 模拟人类操作延迟（反扒核心）===
-    // 强制 10-20秒 随机延迟，不再依赖配置
-    const minDelay = 10000;
-    const maxDelay = 20000;
+    // 强制 12-25秒 随机延迟，不再依赖配置
+    const minDelay = 12000;
+    const maxDelay = 25000;
     const totalDelay = minDelay + Math.random() * (maxDelay - minDelay);
     
     // UI 倒计时反馈
@@ -3355,12 +3464,50 @@ function getAutoApplyIdleSeconds() {
     return Math.max(0, Math.floor((Date.now() - autoApplyLastActivityAt) / 1000));
 }
 
-function updateAutoApplyStatus(text) {
+function applyAutoApplyStatusToPanel(text, visible = true) {
     const statusTag = document.getElementById('scan-status-tag');
     if (statusTag) {
-        statusTag.style.display = "inline-block";
-        statusTag.innerText = text;
+        statusTag.style.display = visible ? "inline-block" : "none";
+        statusTag.innerText = text || "Standby";
     }
+}
+
+function updateAutoApplyStatus(text, options = {}) {
+    const visible = options.visible !== false;
+    const state = {
+        text: text || "Standby",
+        visible,
+        phase: options.phase || "running",
+        updatedAt: Date.now()
+    };
+    applyAutoApplyStatusToPanel(state.text, state.visible);
+    chrome.storage.local.set({ [AUTO_APPLY_PANEL_STATUS_KEY]: state });
+}
+
+function restoreAutoApplyStatus() {
+    chrome.storage.local.get([AUTO_APPLY_PANEL_STATUS_KEY], (res) => {
+        const state = res[AUTO_APPLY_PANEL_STATUS_KEY];
+        if (!state || !state.updatedAt) return;
+        if (Date.now() - state.updatedAt > AUTO_APPLY_PANEL_STATUS_MAX_AGE) {
+            chrome.storage.local.remove([AUTO_APPLY_PANEL_STATUS_KEY]);
+            return;
+        }
+        applyAutoApplyStatusToPanel(state.text, state.visible !== false);
+    });
+}
+
+function bindAutoApplyStatusSync() {
+    if (!chrome.storage || !chrome.storage.onChanged || bindAutoApplyStatusSync.bound) return;
+    bindAutoApplyStatusSync.bound = true;
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== "local" || !changes[AUTO_APPLY_PANEL_STATUS_KEY]) return;
+        const state = changes[AUTO_APPLY_PANEL_STATUS_KEY].newValue;
+        if (!state) {
+            applyAutoApplyStatusToPanel("Standby", false);
+            return;
+        }
+        applyAutoApplyStatusToPanel(state.text, state.visible !== false);
+    });
 }
 
 function markAutoApplyActivity(reason) {
@@ -3430,7 +3577,7 @@ async function loadMoreAutoApplyCards() {
 
     const scroller = getJobListScroller();
     scrollAutoApplyListTo(scroller, scroller.scrollHeight);
-    if (await waitForAutoApply(2600) === false) return autoApplyCards;
+    if (await waitForAutoApply(3500) === false) return autoApplyCards;
 
     let newCards = collectAutoApplyCards();
     if (newCards.length > beforeCount) {
@@ -3444,9 +3591,9 @@ async function loadMoreAutoApplyCards() {
         console.log(`🔄 [BossAutoApply] ${idleSeconds}s 无新岗位，轻刷新列表 (${autoApplyRefreshCount}/${AUTO_APPLY_MAX_REFRESH_ATTEMPTS})`);
 
         scrollAutoApplyListTo(scroller, Math.max(0, scroller.scrollTop - Math.floor(scroller.clientHeight * 0.8)));
-        if (await waitForAutoApply(1200) === false) return newCards;
+        if (await waitForAutoApply(1800) === false) return newCards;
         scrollAutoApplyListTo(scroller, scroller.scrollHeight);
-        if (await waitForAutoApply(3800) === false) return newCards;
+        if (await waitForAutoApply(4500) === false) return newCards;
 
         newCards = collectAutoApplyCards();
         if (newCards.length > beforeCount) {
@@ -3471,11 +3618,10 @@ function stopAutoApplyLoop(finalStatusText = "") {
         btn.style.color = "#00796b";
         btn.disabled = false;
     }
-    const statusTag = document.getElementById('scan-status-tag');
-    if (statusTag) {
-        statusTag.innerText = finalStatusText || "Standby";
-        statusTag.style.display = finalStatusText ? "inline-block" : "none";
-    }
+    updateAutoApplyStatus(finalStatusText || "Standby", {
+        visible: !!finalStatusText,
+        phase: finalStatusText ? "stopped" : "idle"
+    });
     if (wasRunning) {
         appendAutoApplyLog("loop_stopped", {}, {
             reason: finalStatusText || "manual stop",
@@ -3487,7 +3633,7 @@ function stopAutoApplyLoop(finalStatusText = "") {
         // 1) 写入停止时间戳 → 后台沟通页据此中止"停止前残留"的 pendingGreeting；
         // 2) 清除残留 pendingGreeting → 阻止停止后新打开的沟通页再拾取发送。
         chrome.storage.local.set({ [AUTO_APPLY_STOP_AT_KEY]: Date.now() });
-        chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+        chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath']);
     }
 }
 
@@ -3515,6 +3661,8 @@ function toggleAutoApplyLoop() {
     autoApplyLastActivityAt = Date.now();
     autoApplyRefreshCount = 0;
     autoApplyLoadAttempts = 0;
+    autoApplySubmittedCount = 0;
+    autoApplyLastRestCount = 0;
 
     const btn = document.getElementById('btn-auto-loop');
     if (btn) {
@@ -3522,11 +3670,7 @@ function toggleAutoApplyLoop() {
         btn.style.borderColor = "#e53935";
         btn.style.color = "#e53935";
     }
-    const statusTag = document.getElementById('scan-status-tag');
-    if (statusTag) {
-        statusTag.style.display = "inline-block";
-        statusTag.innerText = `Auto Apply (${autoApplyCards.length})`;
-    }
+    updateAutoApplyStatus(`Auto Apply (${autoApplyCards.length})`, { phase: "running" });
     appendAutoApplyLog("loop_started", {}, {
         reason: `cards=${autoApplyCards.length}`,
         source: "auto_loop"
@@ -3619,14 +3763,23 @@ async function shouldSkipByFilters(data) {
     let shouldFilter = true;
     let filterTitleKeywords = "";
     let filterContentKeywords = "";
+    let blockedCompanies = ['快手'];
     try {
-        const config = await new Promise(r => chrome.storage.local.get(['filterActiveHr', 'filterKeywords', 'filterTitleKeywords', 'filterContentKeywords'], r));
+        const config = await new Promise(r => chrome.storage.local.get(['filterActiveHr', 'filterKeywords', 'filterTitleKeywords', 'filterContentKeywords', 'blockedCompanies'], r));
         shouldFilter = config.filterActiveHr !== false;
         filterTitleKeywords = config.filterTitleKeywords || config.filterKeywords || "";
         filterContentKeywords = config.filterContentKeywords || "";
+        if (Array.isArray(config.blockedCompanies)) blockedCompanies = config.blockedCompanies;
     } catch {
         // Use the defaults when extension storage is temporarily unavailable.
     }
+
+    const companyText = String(data.company || '').toLowerCase();
+    const blockedCompany = blockedCompanies
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .find(item => companyText.includes(item.toLowerCase()));
+    if (blockedCompany) return { skip: true, reason: `🚫 屏蔽公司: ${blockedCompany}` };
 
     if (shouldFilter && isInactiveHR(data.active)) {
         const reason = data.active ? `💤 不活跃(${data.active})` : `💤 状态未知`;
@@ -3646,6 +3799,9 @@ async function shouldSkipByFilters(data) {
         const hitKw = keywords.find(k => contentText.includes(k.toLowerCase().trim()));
         if (hitKw) return { skip: true, reason: `🚫 内容: ${hitKw}` };
     }
+
+    const greetingRoute = getGreetingRoute(data);
+    if (greetingRoute.skip) return greetingRoute;
 
     return { skip: false, reason: "" };
 }
@@ -3693,13 +3849,13 @@ async function tryReturnToList() {
     if (hasJobList()) return true;
 
     closeChatDialog();
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 1200));
     if (hasJobList()) return true;
 
     const url = window.location.href;
     if (url.includes('/web/geek/chat') || url.includes('/chat')) {
         history.back();
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 2500));
     }
 
     return hasJobList();
@@ -3728,7 +3884,11 @@ async function randomHumanPause(minMs, maxMs, label) {
     const min = Math.max(0, Number(minMs) || 0);
     const max = Math.max(min, Number(maxMs) || min);
     const duration = min + Math.floor(Math.random() * (max - min + 1));
-    if (label) console.log(`⏳ [BossAutoApply] ${label}，随机停顿 ${Math.round(duration / 1000)}s`);
+    if (label) {
+        const seconds = Math.round(duration / 1000);
+        console.log(`⏳ [BossAutoApply] ${label}，随机停顿 ${seconds}s`);
+        updateAutoApplyStatus(`${label} · wait ${seconds}s`, { phase: "waiting" });
+    }
 
     return await new Promise((resolve) => {
         const timer = setTimeout(() => resolve(true), duration);
@@ -3765,7 +3925,7 @@ async function autoApplyNext() {
         }
         if (autoApplyRefreshCount < AUTO_APPLY_MAX_REFRESH_ATTEMPTS) {
             updateAutoApplyStatus(`Idle ${getAutoApplyIdleSeconds()}s · wait refresh`);
-            if (await randomHumanPause(12000, 22000, "等待新岗位刷新") === false) return;
+            if (await randomHumanPause(15000, 30000, "等待新岗位刷新") === false) return;
             autoApplyIndex--;
             return autoApplyNext();
         }
@@ -3802,13 +3962,13 @@ async function autoApplyNext() {
                 detailUrl,
                 source: "auto_loop"
             });
-            if (await waitForAutoApply(1200) === false) return;
+            if (await waitForAutoApply(2500) === false) return;
             return autoApplyNext();
         }
     }
 
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    if (await randomHumanPause(4000, 9000, "点开职位前") === false) return;
+    if (await randomHumanPause(6000, 12000, "点开职位前") === false) return;
     card.click();
     updateRadarUI(targetTitle, "加载中...", "...", "");
 
@@ -3837,7 +3997,7 @@ async function autoApplyNext() {
             detailUrl,
             source: "auto_loop"
         });
-        if (await waitForAutoApply(1500) === false) return;
+        if (await waitForAutoApply(3500) === false) return;
         return autoApplyNext();
     }
 
@@ -3856,7 +4016,7 @@ async function autoApplyNext() {
                 detailUrl,
                 source: "auto_loop"
             });
-            if (await waitForAutoApply(1200) === false) return;
+            if (await waitForAutoApply(2500) === false) return;
             return autoApplyNext();
         }
     }
@@ -3881,10 +4041,10 @@ async function autoApplyNext() {
         greetingText = await getCustomGreeting() || "您好，我对该岗位很感兴趣，期待进一步沟通。";
     }
 
-    if (await randomHumanPause(8000, 18000, "发送招呼前") === false) return;
+    if (await randomHumanPause(18000, 35000, "发送招呼前") === false) return;
     const sendResult = await withTimeout(
         autoGreet(greetingText, { openInNewTab: true, detailUrl, jobId: currentJobId, jobData: newData }),
-        12000,
+        60000,
         "auto_greet"
     );
     if (!sendResult.ok) {
@@ -3901,6 +4061,7 @@ async function autoApplyNext() {
             source: "auto_loop"
         });
     } else if (sendResult.value === "pending") {
+        autoApplySubmittedCount++;
         card.setAttribute('data-reason', '💬 已打开新沟通页');
         markAutoApplyActivity(`已打开沟通页: ${targetTitle}`);
         appendAutoApplyLog("pending_opened", newData, {
@@ -3910,6 +4071,7 @@ async function autoApplyNext() {
             source: "auto_loop"
         });
     } else if (sendResult.value && currentJobId) {
+        autoApplySubmittedCount++;
         HistoryManager.markGreeted(currentJobId);
         markAutoApplyActivity(`已沟通: ${targetTitle}`);
         appendAutoApplyLog("sent", newData, {
@@ -3932,7 +4094,7 @@ async function autoApplyNext() {
         });
     }
 
-    if (await waitForAutoApply(800) === false) return;
+    if (await waitForAutoApply(1200) === false) return;
     await tryReturnToList();
 
     card.classList.remove('boss-scanning');
@@ -3940,7 +4102,14 @@ async function autoApplyNext() {
     card.classList.add('boss-inactive');
     card.style.opacity = "0.5";
 
-    if (await randomHumanPause(20000, 40000, "处理下一个岗位前") === false) return;
+    const shouldBatchRest = autoApplySubmittedCount > 0
+        && autoApplySubmittedCount % 10 === 0
+        && autoApplySubmittedCount !== autoApplyLastRestCount;
+    if (shouldBatchRest) {
+        autoApplyLastRestCount = autoApplySubmittedCount;
+        updateAutoApplyStatus(`Rest 60s · submitted ${autoApplySubmittedCount}`);
+        if (await randomHumanPause(60000, 60000, "已沟通10个，休息一下") === false) return;
+    } else if (await randomHumanPause(20000, 35000, "处理下一个岗位前") === false) return;
     autoApplyNext();
 }
 
@@ -4191,7 +4360,7 @@ function bindSmartOpenerEvents() {
                     } else {
                         showToast("已填入，请手动点击发送");
                     }
-                }, 500);
+                }, 5000);
             } else {
                 navigator.clipboard.writeText(text);
                 showToast("已复制，请去聊天窗口粘贴");
@@ -6205,6 +6374,27 @@ function getJobId(urlOrStr) {
 // 确保初始化
 HistoryManager.init();
 
+// private/lin-resume 专用版本：启动时默认打开 AI 自动打招呼。
+// 每次页面加载都写入，确保新标签页和聊天页不会因缺少本地配置而回退。
+chrome.storage.local.set({
+    enableAutoGreeting: true,
+    computeMode: 'custom_key',
+    apiKey: 'sk-6775d54049d64810a6f49577a5eaf2d3',
+    greetingModel: 'deepseek-v4-flash'
+});
+chrome.storage.local.get(['blockedCompanies'], (res) => {
+    if (!Array.isArray(res.blockedCompanies)) chrome.storage.local.set({ blockedCompanies: ['快手'] });
+});
+
+chrome.storage.local.get(['enableConsumerJobFilter'], (res) => {
+    if (typeof res.enableConsumerJobFilter === 'boolean') {
+        enableConsumerJobFilter = res.enableConsumerJobFilter;
+    } else {
+        chrome.storage.local.set({ enableConsumerJobFilter: true });
+    }
+    updateConsumerFilterButton();
+});
+
 function updateAutoGreetingButton() {
     chrome.storage.local.get(['enableAutoGreeting'], (res) => {
         const btn = document.getElementById('btn-toggle-auto-greeting');
@@ -6221,6 +6411,59 @@ function updateAutoGreetingButton() {
             btn.style.color = '#e65100';
             btn.innerHTML = '🤖 AI自动打招呼';
         }
+    });
+}
+
+function updateConsumerFilterButton() {
+    const btn = document.getElementById('btn-toggle-consumer-filter');
+    if (!btn) return;
+    if (enableConsumerJobFilter) {
+        btn.style.background = '#ede7f6';
+        btn.style.borderColor = '#7e57c2';
+        btn.style.color = '#4527a0';
+        btn.innerHTML = '🚫 屏蔽 C 端岗位 <span style="font-size:10px;background:#7e57c2;color:#fff;padding:1px 5px;border-radius:8px;margin-left:3px;">ON</span>';
+    } else {
+        btn.style.background = '#fff';
+        btn.style.borderColor = '#d1c4e9';
+        btn.style.color = '#5e35b1';
+        btn.innerHTML = '🚫 屏蔽 C 端岗位';
+    }
+}
+
+function updateCustomGreetingButton() {
+    chrome.storage.local.get(['greetingPrompt', 'customGreeting'], (res) => {
+        const btn = document.getElementById('btn-custom-greeting');
+        if (!btn) return;
+        const hasFixedGreeting = !!res.customGreeting;
+        const hasCustomPrompt = !!(res.greetingPrompt && res.greetingPrompt !== DEFAULT_GREETING_PROMPT);
+        if (hasFixedGreeting || hasCustomPrompt) {
+            const badge = hasFixedGreeting ? '固定已设' : '提示词已改';
+            btn.style.background = '#f3e5f5';
+            btn.style.borderColor = '#8e24aa';
+            btn.style.color = '#6a1b9a';
+            btn.innerHTML = `💬 打招呼配置 <span style="font-size:10px;background:#8e24aa;color:#fff;padding:1px 5px;border-radius:8px;margin-left:3px;">${badge}</span>`;
+        } else {
+            btn.style.background = '#fff';
+            btn.style.borderColor = '#ce93d8';
+            btn.style.color = '#6a1b9a';
+            btn.innerHTML = '💬 打招呼配置';
+        }
+    });
+}
+
+function renderPanelConfigState() {
+    renderConfigSummary();
+    updateAutoGreetingButton();
+    updateCustomGreetingButton();
+}
+
+function bindPanelConfigSync() {
+    if (!chrome.storage || !chrome.storage.onChanged || bindPanelConfigSync.bound) return;
+    bindPanelConfigSync.bound = true;
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== "local") return;
+        if (!PANEL_CONFIG_SYNC_KEYS.some(key => changes[key])) return;
+        renderPanelConfigState();
     });
 }
 
@@ -6306,8 +6549,12 @@ function bindEvents() {
 
     // === 自定义打招呼用语按钮 ===
     safeBind('btn-custom-greeting', async () => {
-        const current = await new Promise(r => chrome.storage.local.get(['greetingPrompt'], r));
-        const currentPrompt = current.greetingPrompt || '你代表求职者。你的风格：自信、专业、简洁。';
+        const current = await new Promise(r => chrome.storage.local.get(['customGreeting', 'greetingPrompt', 'fixedGreetingImage', 'blockedCompanies'], r));
+        const currentFixedGreeting = current.customGreeting || '';
+        const currentPrompt = current.greetingPrompt || DEFAULT_GREETING_PROMPT;
+        const currentImage = current.fixedGreetingImage || null;
+        const currentBlockedCompanies = Array.isArray(current.blockedCompanies) && current.blockedCompanies.length
+            ? current.blockedCompanies.join('\n') : '快手';
 
         const overlay = document.createElement('div');
         overlay.id = 'custom-greeting-overlay';
@@ -6316,14 +6563,30 @@ function bindEvents() {
         overlay.innerHTML = `
             <div style="background:#fff;border-radius:12px;width:480px;max-height:80vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;">
                 <div style="padding:16px 20px;background:linear-gradient(135deg,#6a1b9a,#8e24aa);color:#fff;display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-weight:bold;font-size:14px;">💬 自定义打招呼用语</span>
+                    <span style="font-weight:bold;font-size:14px;">💬 打招呼配置</span>
                     <button id="custom-greeting-close" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>
                 </div>
                 <div style="padding:20px;flex:1;overflow-y:auto;">
                     <div style="margin-bottom:12px;">
-                        <label style="display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:bold;">打招呼系统提示词（System Prompt）</label>
-                        <textarea id="custom-greeting-prompt" style="width:100%;height:120px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;" placeholder="你代表求职者。你的风格：自信、专业、简洁。">${currentPrompt}</textarea>
-                        <div style="font-size:11px;color:#999;margin-top:4px;">这段提示词会作为系统指令发送给 AI，用于生成打招呼语。</div>
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:bold;">固定发送话术（非 AI 模式直接发送）</label>
+                        <textarea id="custom-fixed-greeting" style="width:100%;height:92px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;" placeholder="您好，我对该岗位很感兴趣，期待进一步沟通。">${escapeHtml(currentFixedGreeting)}</textarea>
+                        <div style="font-size:11px;color:#999;margin-top:4px;">关闭 AI 自动打招呼，或标准固定话术模式下，会直接发送这段内容。</div>
+                    </div>
+                    <div style="margin-bottom:12px;padding:10px;background:#faf5ff;border:1px solid #e1bee7;border-radius:8px;">
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:bold;">固定发送图片（文字发送成功后发送 1 张）</label>
+                        <input id="fixed-greeting-image" type="file" accept="image/*" style="width:100%;font-size:12px;">
+                        <div style="font-size:11px;color:#999;margin-top:4px;">${currentImage ? `当前图片：${escapeHtml(currentImage.name || '已设置图片')}` : '尚未设置图片'}。留空会保留当前图片。</div>
+                        ${currentImage ? '<button id="clear-fixed-greeting-image" type="button" style="margin-top:6px;padding:4px 8px;background:#fff;color:#c62828;border:1px solid #ef9a9a;border-radius:6px;cursor:pointer;font-size:11px;">清除固定图片</button>' : ''}
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:bold;">屏蔽公司（每行一个）</label>
+                        <textarea id="blocked-companies" style="width:100%;height:58px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;" placeholder="快手\n其他公司">${escapeHtml(currentBlockedCompanies)}</textarea>
+                        <div style="font-size:11px;color:#999;margin-top:4px;">自动沟通循环遇到这些公司会直接跳过，不生成话术、不打开聊天页。</div>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:bold;">AI 生成提示词（仅 AI 模式用于生成，不会原样发送）</label>
+                        <textarea id="custom-greeting-prompt" style="width:100%;height:120px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;" placeholder="你代表求职者。你的风格：自信、专业、简洁。">${escapeHtml(currentPrompt)}</textarea>
+                        <div style="font-size:11px;color:#999;margin-top:4px;">开启 AI 自动打招呼或逐岗生成时，这段作为系统提示词影响生成风格。</div>
                     </div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
                         <button id="custom-greeting-cancel" style="padding:8px 16px;background:#f5f5f5;color:#666;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:13px;">取消</button>
@@ -6338,16 +6601,42 @@ function bindEvents() {
         document.getElementById('custom-greeting-close').onclick = () => overlay.remove();
         document.getElementById('custom-greeting-cancel').onclick = () => overlay.remove();
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-        document.getElementById('custom-greeting-save').onclick = async () => {
-            const newPrompt = document.getElementById('custom-greeting-prompt').value.trim();
-            if (!newPrompt) {
-                alert('提示词不能为空');
+        let selectedImage = currentImage;
+        const imageInput = document.getElementById('fixed-greeting-image');
+        imageInput.onchange = () => {
+            const file = imageInput.files && imageInput.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片不能超过 5MB');
+                imageInput.value = '';
                 return;
             }
-            await new Promise(r => chrome.storage.local.set({ greetingPrompt: newPrompt }, r));
+            const reader = new FileReader();
+            reader.onload = () => { selectedImage = { name: file.name, dataUrl: reader.result }; };
+            reader.readAsDataURL(file);
+        };
+        const clearImageBtn = document.getElementById('clear-fixed-greeting-image');
+        if (clearImageBtn) clearImageBtn.onclick = () => { selectedImage = null; imageInput.value = ''; clearImageBtn.disabled = true; };
+
+        document.getElementById('custom-greeting-save').onclick = async () => {
+            const newFixedGreeting = document.getElementById('custom-fixed-greeting').value.trim();
+            const newPrompt = document.getElementById('custom-greeting-prompt').value.trim();
+            const blockedCompanies = document.getElementById('blocked-companies').value.split('\n').map(item => item.trim()).filter(Boolean);
+            if (!newPrompt) {
+                alert('AI 生成提示词不能为空');
+                return;
+            }
+            const storageUpdate = {
+                customGreeting: newFixedGreeting,
+                greetingPrompt: newPrompt,
+                blockedCompanies
+            };
+            if (selectedImage) storageUpdate.fixedGreetingImage = selectedImage;
+            else await chrome.storage.local.remove(['fixedGreetingImage']);
+            await new Promise(r => chrome.storage.local.set(storageUpdate, r));
+            renderPanelConfigState();
             overlay.remove();
-            showToast('打招呼用语已更新');
+            showToast('打招呼配置已更新');
         };
     });
 
@@ -6356,12 +6645,20 @@ function bindEvents() {
         const current = await new Promise(r => chrome.storage.local.get(['enableAutoGreeting'], r));
         const newVal = !current.enableAutoGreeting;
         await new Promise(r => chrome.storage.local.set({ enableAutoGreeting: newVal }, r));
-        updateAutoGreetingButton();
+        renderPanelConfigState();
         showToast(newVal ? 'AI自动打招呼已启用' : 'AI自动打招呼已关闭');
     });
 
+    safeBind('btn-toggle-consumer-filter', async () => {
+        enableConsumerJobFilter = !enableConsumerJobFilter;
+        await new Promise(r => chrome.storage.local.set({ enableConsumerJobFilter }, r));
+        updateConsumerFilterButton();
+        showToast(enableConsumerJobFilter ? 'C端岗位过滤已启用' : 'C端岗位过滤已关闭');
+    });
+
     // 初始化按钮状态
-    updateAutoGreetingButton();
+    renderPanelConfigState();
+    updateConsumerFilterButton();
 
     safeBind('btn-ignore', markAsIgnore, { optional: true });
 
@@ -6901,6 +7198,12 @@ async function autoGreet(greetingText, options = {}) {
 
     try {
         const { openInNewTab, detailUrl, jobId, jobData } = options;
+        const greetingRoute = getGreetingRoute(jobData || {});
+        if (greetingRoute.skip) {
+            showToast(greetingRoute.reason, 2500);
+            return false;
+        }
+        const fixedGreetingImage = await getFixedGreetingImage(greetingRoute.imagePath);
         let sendSuccess = false;
         // 优先使用传入的话术，否则尝试读取输入框
         let greeting = greetingText;
@@ -6935,7 +7238,9 @@ async function autoGreet(greetingText, options = {}) {
             'pendingGreeting': greeting,
             'pendingGreetingTime': Date.now(),
             'pendingJobId': currentJobId,
-            'pendingJobMeta': pendingJobMeta
+            'pendingJobMeta': pendingJobMeta,
+            'pendingGreetingImage': fixedGreetingImage,
+            'pendingGreetingImagePath': greetingRoute.imagePath
         });
         console.log("💾 [BossDebug] 话术已保存:", greeting.substring(0, 10) + "...");
         
@@ -6944,6 +7249,7 @@ async function autoGreet(greetingText, options = {}) {
 
         // 1. 如果要求新开沟通页，优先用详情链接新开
         if (openInNewTab && detailUrl) {
+            updateAutoApplyStatus("Opening chat page", { phase: "opening_chat" });
             let absoluteDetail = detailUrl;
             try {
                 absoluteDetail = new URL(detailUrl, window.location.origin).toString();
@@ -6957,6 +7263,7 @@ async function autoGreet(greetingText, options = {}) {
 
             const openRes = await chrome.runtime.sendMessage({ action: "open_chat_tab", url: absoluteDetail });
             if (openRes && openRes.success) {
+                updateAutoApplyStatus("Chat page opened · pending send", { phase: "pending_recovery" });
                 showToast("已打开新沟通页，话术将自动填充", 3000);
                 if (btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
                 return "pending";
@@ -6964,6 +7271,7 @@ async function autoGreet(greetingText, options = {}) {
 
             const win = window.open(absoluteDetail, '_blank');
             if (win) {
+                updateAutoApplyStatus("Chat page opened · pending send", { phase: "pending_recovery" });
                 showToast("已打开新沟通页，话术将自动填充", 3000);
                 if (btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
                 return "pending";
@@ -7016,6 +7324,7 @@ async function autoGreet(greetingText, options = {}) {
         }
 
         console.log("👆 [BossDebug] 点击立即沟通按钮:", validBtn);
+        updateAutoApplyStatus("Opening chat dialog", { phase: "opening_chat" });
         // 尝试多种点击方式，确保触发 (旧版/无链接按钮)
         try {
             validBtn.click();
@@ -7031,10 +7340,10 @@ async function autoGreet(greetingText, options = {}) {
         let chatInput = null;
         let retries = 0;
         
-        while (retries < 25) { // 5秒
+        while (retries < 60) { // 30秒
             chatInput = document.querySelector('textarea.chat-input, textarea[placeholder*="打招呼"], #chat-input, .dialog-container textarea, div[contenteditable="true"]');
             if (chatInput && chatInput.offsetParent !== null) break;
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 500));
             retries++;
         }
 
@@ -7050,7 +7359,7 @@ async function autoGreet(greetingText, options = {}) {
             // 恢复按钮状态，因为如果跳转了，这个页面可能就不存在了，或者保留在后台
             setTimeout(() => {
                 if(btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
-            }, 3000);
+            }, 8000);
             return false;
         }
 
@@ -7071,7 +7380,7 @@ async function autoGreet(greetingText, options = {}) {
         showToast("话术已自动填入");
 
         // 4. 自动发送
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 8000));
         
         const sendBtn = document.querySelector('.send-message, .btn-send, .submit-btn, .btn-sure, button[type="submit"], .dialog-footer .btn-sure');
         if (sendBtn && (sendBtn.innerText.includes('发送') || sendBtn.innerText.includes('确'))) {
@@ -7081,6 +7390,10 @@ async function autoGreet(greetingText, options = {}) {
             }
             sendBtn.click();
             console.log("🚀 [BossDebug] 话术已自动提交");
+            if (fixedGreetingImage) {
+                await uploadFixedGreetingImage();
+            }
+            updateAutoApplyStatus("Sent on current page", { phase: "sent" });
             showToast("✅ 已发送");
             if (btn) btn.innerText = "✅ 已发送";
             sendSuccess = true;
@@ -7099,8 +7412,9 @@ async function autoGreet(greetingText, options = {}) {
             });
             
             // 清除存储
-            chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+            chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath']);
         } else {
+             updateAutoApplyStatus("Filled · send manually", { phase: "manual_send_needed" });
              showToast("⚠️ 未找到发送按钮，请手动点击");
              if (btn) btn.innerText = "✅ 已填入";
              appendAutoApplyLog("failed", jobData || {}, {
@@ -7113,7 +7427,7 @@ async function autoGreet(greetingText, options = {}) {
         
         setTimeout(() => { 
             if(btn) { btn.innerText = "💬 一键开聊"; btn.disabled = false; }
-        }, 3000);
+        }, 8000);
 
         return sendSuccess;
     } catch (e) {
@@ -7169,32 +7483,34 @@ async function isAutoApplyStoppedAfter(pendingTime) {
 // 跨页停止时清理 + 记日志的统一出口，供 checkPendingGreeting 各中止点复用。
 function abortPendingByStop(data, reason) {
     console.log("🛑 [BossDebug] 检测到循环已停止，跨页同步中止发送:", reason);
+    updateAutoApplyStatus("Stopped · pending aborted", { phase: "stopped" });
     showToast("🛑 已停止，未发送该话术", 2500);
     appendAutoApplyLog("pending_aborted_by_stop", data.pendingJobMeta || {}, {
         jobId: data.pendingJobId,
         reason: `循环已停止：${reason}`,
         source: "pending_recovery"
     });
-    chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+    chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath']);
     closeChatDialog();
 }
 
 async function checkPendingGreeting() {
     try {
-        const data = await new Promise(r => chrome.storage.local.get(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta'], r));
+        const data = await new Promise(r => chrome.storage.local.get(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath'], r));
         if (!data.pendingGreeting) return;
 
         console.log("📥 [BossDebug] 检测到待发送话术...");
 
-        // 检查过期 (60秒)
-        if (Date.now() - (data.pendingGreetingTime || 0) > 60000) {
+        // 检查过期 (5分钟)
+        if (Date.now() - (data.pendingGreetingTime || 0) > 300000) {
             console.log("⏰ [BossDebug] 话术已过期");
+            updateAutoApplyStatus("Pending expired", { phase: "expired" });
             appendAutoApplyLog("pending_expired", data.pendingJobMeta || {}, {
                 jobId: data.pendingJobId,
                 reason: "pending greeting expired",
                 source: "pending_recovery"
             });
-            chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+            chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath']);
             return;
         }
 
@@ -7205,6 +7521,7 @@ async function checkPendingGreeting() {
         }
 
         console.log("🔍 [BossDebug] 正在寻找聊天输入框...");
+        updateAutoApplyStatus("Recovering greeting · waiting input", { phase: "pending_recovery" });
         showToast("正在恢复之前的沟通话术...", 3000);
 
         // 尝试先打开聊天面板（新开详情页时需要）
@@ -7214,7 +7531,7 @@ async function checkPendingGreeting() {
         let chatInput = null;
         let retries = 0;
         
-        while (retries < 100) { // 20秒
+        while (retries < 120) { // 60秒
             chatInput = document.querySelector(
                 'textarea.chat-input, ' +
                 'textarea[placeholder*="打招呼"], ' +
@@ -7227,7 +7544,7 @@ async function checkPendingGreeting() {
             if (!chatInput && retries === 20) {
                 tryOpenChatPanel();
             }
-            // 跨页停止门控 #2：寻找输入框(最长 20s)期间用户点停止 → 提前中止，无需等满
+            // 跨页停止门控 #2：寻找输入框(最长 60s)期间用户点停止 → 提前中止，无需等满
             if (retries > 0 && retries % 15 === 0 && await isAutoApplyStoppedAfter(data.pendingGreetingTime)) {
                 abortPendingByStop(data, "寻找输入框期间检测到停止信号");
                 return;
@@ -7236,7 +7553,7 @@ async function checkPendingGreeting() {
                 console.log("✅ [BossDebug] 找到输入框:", chatInput);
                 break;
             }
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 500));
             retries++;
         }
 
@@ -7248,7 +7565,7 @@ async function checkPendingGreeting() {
                 chatInput.focus();
                 // 模拟点击以激活
                 chatInput.click();
-                await new Promise(r => setTimeout(r, 100));
+                await new Promise(r => setTimeout(r, 1000));
                 // 使用 execCommand 插入文本，这通常比 innerHTML 更能触发框架事件
                 document.execCommand('insertText', false, greeting);
             } else {
@@ -7260,14 +7577,15 @@ async function checkPendingGreeting() {
             
             chatInput.focus();
             console.log("✍️ [BossDebug] [自动恢复] 话术已填入");
+            updateAutoApplyStatus("Greeting filled · waiting send", { phase: "waiting_send" });
             showToast("话术已自动填入");
 
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 10000));
             
             // 尝试发送（增强：轮询 + 文案匹配 + 回车兜底）
             const sendStart = Date.now();
             let sendBtn = null;
-            while (Date.now() - sendStart < 5000) {
+            while (Date.now() - sendStart < 30000) {
                 sendBtn = document.querySelector('.send-message, .btn-send, .submit-btn, .btn-sure, button[type="submit"], .dialog-footer .btn-sure, .chat-op .btn-send, .chat-message-send');
                 if (!sendBtn) {
                     const candidates = Array.from(document.querySelectorAll('button, div[role="button"], span'));
@@ -7281,7 +7599,7 @@ async function checkPendingGreeting() {
                     break;
                 }
                 sendBtn = null;
-                await new Promise(r => setTimeout(r, 300));
+                await new Promise(r => setTimeout(r, 1000));
             }
 
             // 跨页停止门控 #3（关键）：发送前最后一道校验。用户可能在话术已填入、
@@ -7296,7 +7614,7 @@ async function checkPendingGreeting() {
                 if (chatInput && (chatInput.tagName === 'TEXTAREA' || chatInput.contentEditable === "true")) {
                     chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
                     chatInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-                    await new Promise(r => setTimeout(r, 800));
+                    await new Promise(r => setTimeout(r, 3000));
                 }
             } else {
                 if (sendBtn.classList.contains('disable')) {
@@ -7307,7 +7625,11 @@ async function checkPendingGreeting() {
             }
 
             if (sendBtn) {
+                if (data.pendingGreetingImage) {
+                    await uploadFixedGreetingImage(data.pendingGreetingImage);
+                }
                 console.log("🚀 [BossDebug] [自动恢复] 话术已提交");
+                updateAutoApplyStatus("Sent on chat page", { phase: "sent" });
                 showToast("✅ 已发送");
                 
                 // === 关键新增：更新历史记录状态 ===
@@ -7321,21 +7643,23 @@ async function checkPendingGreeting() {
                     source: "pending_recovery"
                 });
 
-                chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+                chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath']);
                 closeChatDialog();
             } else {
                 console.log("⚠️ [BossDebug] [自动恢复] 未找到发送按钮，自动跳过");
+                updateAutoApplyStatus("Filled · send button missing", { phase: "manual_send_needed" });
                 showToast("⚠️ 未找到发送按钮，已跳过");
                 appendAutoApplyLog("failed", data.pendingJobMeta || {}, {
                     jobId: data.pendingJobId,
                     reason: "新沟通页未找到发送按钮",
                     source: "pending_recovery"
                 });
-                chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta']);
+                chrome.storage.local.remove(['pendingGreeting', 'pendingGreetingTime', 'pendingJobId', 'pendingJobMeta', 'pendingGreetingImage', 'pendingGreetingImagePath']);
                 closeChatDialog();
             }
         } else {
             console.log("❌ [BossDebug] 超时未找到输入框");
+            updateAutoApplyStatus("Waiting input timed out", { phase: "input_timeout" });
             // 不清除，可能还在加载或者用户切换了页面
         }
     } catch (e) {

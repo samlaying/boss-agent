@@ -344,7 +344,22 @@ const CONFIG_GEN_PROMPT = `
 `;
 
 // 默认系统提示词 (用于打招呼生成)
-const DEFAULT_CHAT_SYSTEM_PROMPT = `你代表求职者。你的风格：自信、专业、简洁。请基于岗位要求生成一段自然得体的打招呼话术。`;
+const DEFAULT_CHAT_SYSTEM_PROMPT = `你是一名求职沟通顾问，负责根据【求职者简历】和【目标职位】生成首次打招呼语。
+必须以简历中的真实经历、项目、技能或可验证成果为依据，优先选择与目标职位最匹配的1-2个具体事实；不要泛泛而谈，不要编造简历中没有的经历、公司、技能、年限或成果。JD中有但简历没有的要求必须省略，不要硬说具备；相近经历也只能如实表述为可迁移经验。
+禁止以“我是”“我叫”“本人是”等自我介绍句开头，也不要重复姓名、电话、微信、邮箱等联系方式。开头直接表达对岗位的兴趣，并自然衔接匹配点和进一步沟通意愿。
+话术要像真人聊天，简洁、具体、克制，不要写成简历摘要或求职信。
+
+【求职者稳定背景（只能据此表达，不得扩写）】
+- 天津师范大学经济学本科，专业前10%。
+- 猎聘：参与招聘 Agent 产品设计与落地，访谈30+中小企业 HR，搜索/推荐策略、语义岗位理解、MVP、22名用户试用、60+反馈、推荐准确率由60%+提升至85%+。
+- 字节跳动剪映：参与 AI 深度剪辑商业化，用户分层、Push/站内信、A/B 实验，付费率提升1.3PP，月度 GMV 增长超670万元。
+- 美图：参与海外 AI 证件照产品，市场洞察、C/B 端分层、API 合作、A/B 实验，首月获客10万+、净付费率提升2.1%。
+- 能力：AI 产品落地、0到1需求验证、MVP、增长与商业化、A/B实验、Python、SQL、Figma，以及 Claude Code/Codex/Cursor、Dify/Coze/n8n。
+- 上述背景之外的行业、技术、管理经验都视为未知。JD 要求但简历没有的能力，不得声称掌握；可以不提，或诚实表达为“暂无直接经验，但有相近场景的迁移经验”。`;
+
+// private/lin-resume 本地专用配置：不提交远程仓库。
+const PRIVATE_DEFAULT_API_KEY = 'sk-6775d54049d64810a6f49577a5eaf2d3';
+const PRIVATE_DEFAULT_COMPUTE_MODE = 'custom_key';
 
 // ===============================================
 // 🛡️ 隐私脱敏工具函数
@@ -487,7 +502,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // === 职位分析接口 ===
     if (request.action === "call_deepseek") {
         console.log("🎯 收到职位分析请求...");
-        const { jobText, hrName, bossTitle, greetingCount } = request;
+        const { jobText, hrName, bossTitle, greetingCount, resume: routedResume } = request;
 
         // 并行获取所有配置
         chrome.storage.local.get(['apiKey', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
@@ -503,16 +518,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
 
                 // 1. 确定计算模式 (默认 energy)
-                const computeMode = data.computeMode || 'energy';
+                const computeMode = data.computeMode || PRIVATE_DEFAULT_COMPUTE_MODE;
 
                 // 2. 模式分支
                 if (computeMode === 'custom_key') {
                     // === 模式 A: 自有 Key 直连 ===
-                    if (!data.apiKey) {
+                    if (!data.apiKey && !PRIVATE_DEFAULT_API_KEY) {
                         sendResponse({ success: false, error: "请先在插件配置中输入 DeepSeek API Key" });
                         return;
                     }
-                    await handleDirectCall(data.apiKey, dataSystemPrompt, data.resume, jobText, hrName, bossTitle, sendResponse, sender.tab.id, greetingCount);
+                    await handleDirectCall(data.apiKey || PRIVATE_DEFAULT_API_KEY, dataSystemPrompt, data.resume, jobText, hrName, bossTitle, sendResponse, sender.tab.id, greetingCount);
                 } else {
                     // 检查能量 (分析职位，扣 1 点)
                     const energy = data.energyCount !== undefined ? data.energyCount : 3;
@@ -535,7 +550,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // === 打招呼生成接口 ===
     if (request.action === "generate_greeting") {
         console.log("💬 收到打招呼生成请求...");
-        const { jobText, hrName, bossTitle, greetingCount } = request;
+        const { jobText, hrName, bossTitle, greetingCount, resume: routedResume } = request;
 
         chrome.storage.local.get(['apiKey', 'resume', 'computeMode', 'energyCount', 'clientId', 'userKey'], async (data) => {
             try {
@@ -547,17 +562,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     chrome.storage.local.set({ clientId });
                 }
 
-                const computeMode = data.computeMode || 'energy';
+                const computeMode = data.computeMode || PRIVATE_DEFAULT_COMPUTE_MODE;
 
                 if (computeMode === 'custom_key') {
-                    if (!data.apiKey) {
+                    if (!data.apiKey && !PRIVATE_DEFAULT_API_KEY) {
                         sendResponse({ success: false, error: "请先在插件配置中输入 DeepSeek API Key" });
                         return;
                     }
                     await handleDirectGreetingCall(
-                        data.apiKey,
+                        data.apiKey || PRIVATE_DEFAULT_API_KEY,
                         dataChatPrompt,
-                        data.resume,
+                        routedResume || data.resume,
                         jobText,
                         hrName,
                         bossTitle,
@@ -574,7 +589,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     await handleServerlessGreetingCall(
                         clientId,
                         dataChatPrompt,
-                        data.resume,
+                        routedResume || data.resume,
                         jobText,
                         hrName,
                         bossTitle,
@@ -715,11 +730,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const { resume } = request;
         chrome.storage.local.get(['apiKey', 'computeMode', 'clientId', 'energyCount', 'userKey'], async (data) => {
             
-            const computeMode = data.computeMode || 'energy';
+            const computeMode = data.computeMode || PRIVATE_DEFAULT_COMPUTE_MODE;
             
             // 模式 A: 自有 Key
             if (computeMode === 'custom_key') {
-                if (!data.apiKey) {
+                if (!data.apiKey && !PRIVATE_DEFAULT_API_KEY) {
                     sendResponse({ success: false, error: "请先输入 API Key" });
                     return;
                 }
@@ -942,8 +957,8 @@ function constructGreetingUserPrompt(resume, jobText, hrName, bossTitle, greetin
     // 由 content 端 pickGreetingCandidate 随机挑一条发送。clamp 到 [1,5]，与 SCRIPT_STYLES_MAP 对齐。
     const count = Math.max(1, Math.min(5, Number(greetingCount) || 1));
     const instruction = count > 1
-        ? `请生成 ${count} 条风格各异、简洁自然的打招呼话术（每条 1-3 句），各条之间用 "|||" 分隔，只输出话术本身，不要编号、不要 JSON、不要解释。`
-        : `请生成 1 段简洁自然的打招呼话术（1-3 句），只输出文本，不要 JSON，不要解释。`;
+        ? `请生成 ${count} 条风格各异、简洁自然的打招呼话术（每条 1-3 句）。有真实匹配点时结合至少一个；JD要求但简历没有的能力不要提，禁止臆造或强行声称具备；没有合适匹配点时只表达岗位兴趣和进一步沟通意愿。禁止以“我是/我叫/本人是”开头。各条之间用 "|||" 分隔，只输出话术本身，不要编号、不要 JSON、不要解释。`
+        : `请生成 1 段简洁自然的打招呼话术（1-3 句）。有真实匹配点时结合至少一个；JD要求但简历没有的能力不要提，禁止臆造或强行声称具备；没有合适匹配点时只表达岗位兴趣和进一步沟通意愿。禁止以“我是/我叫/本人是”开头。只输出文本，不要 JSON，不要解释。`;
     return `
 【求职者简历】：
 """${resume || "（未提供简历，请基于通用背景生成）"}"""
@@ -1252,11 +1267,19 @@ function prepareChatSystemPrompt(chatSystemPrompt, greetingCount = 1) {
     // 默认 1：兼容未传 greetingCount 的旧调用方（生成单条）。
     // 注意 analyze 路径的 prepareSystemPrompt 默认 3（opening_scripts 多风格），两条路径语义不同，默认值差异是有意的。
     const base = chatSystemPrompt || DEFAULT_CHAT_SYSTEM_PROMPT;
+    const groundingRules = `
+
+【打招呼生成硬性规则】
+1. 只能使用简历中明确出现的真实信息；JD要求但简历没有的能力不要提，不要为了“匹配”而补写或猜测。
+2. 禁止以“我是/我叫/本人是”开头，禁止把姓名、联系方式当作卖点；直接从岗位兴趣或匹配经历切入。
+3. 有真实匹配点时优先写出1个具体事实，避免空泛的“学习能力强、认真负责”；没有合适匹配点时，只表达岗位兴趣和进一步沟通意愿，不要硬凑匹配点。
+4. 只输出可直接发送给招聘者的话术，不要标题、编号、解释、引号或 Markdown。`;
+    const effectivePrompt = `${base}${groundingRules}`;
     const count = Math.max(1, Math.min(5, Number(greetingCount) || 1));
-    if (count <= 1) return base;
+    if (count <= 1) return effectivePrompt;
     // count>1 时与 user prompt 对齐：默认 system prompt 写的是"生成一段"，
     // 不追加会与 user 的"生成 N 条"自相矛盾，让模型困惑。
-    return `${base}\n\n本次请生成 ${count} 条风格各异的开场白候选，各条用 "|||" 分隔。`;
+    return `${effectivePrompt}\n\n本次请生成 ${count} 条风格各异的开场白候选，各条用 "|||" 分隔。`;
 }
 
 // === 默认 LLM 配置 (小米 mimo) ===

@@ -33,26 +33,22 @@ function loadIsAiGreetingMode() {
   return module.exports.isAiGreetingMode;
 }
 
-test('standard mode (fixed greeting) is NOT AI mode', () => {
-  // 回归：自动沟通循环无条件调 generate_greeting，导致标准模式也触发 serverless
-  // 的 Unknown Action 报错。标准模式必须被识别为"非 AI"，从而跳过 AI 请求。
+test('private resume branch always uses AI greeting mode', () => {
   const isAi = loadIsAiGreetingMode();
 
   // 引导页标准模式持久化：COMPUTE_MODE='energy', GREETING_COUNT=0
-  assert.equal(isAi('energy', 0), false, 'energy + 0 → standard');
-  assert.equal(isAi('energy', undefined), false);
-  assert.equal(isAi(undefined, undefined), false, '未配置默认按标准模式');
-  assert.equal(isAi('energy', '0'), false, '字符串 "0" 也不是 AI 模式');
+  assert.equal(isAi('energy', 0), true);
+  assert.equal(isAi('energy', undefined), true);
+  assert.equal(isAi(undefined, undefined), true);
+  assert.equal(isAi('energy', '0'), true);
 });
 
-test('AI mode is custom_key or explicit positive greeting count', () => {
-  // 与引导页 StepFeatures 的判断式对称：custom_key 或 greetingCount>0 即 AI 模式。
+test('AI mode ignores the side-panel toggle in private resume branch', () => {
   const isAi = loadIsAiGreetingMode();
 
-  // 引导页 AI 模式持久化：COMPUTE_MODE='custom_key', GREETING_COUNT=3
   assert.equal(isAi('custom_key', 3), true);
-  assert.equal(isAi('custom_key', 0), true, 'custom_key 自身即 AI 模式');
-  assert.equal(isAi('energy', 3), true, '显式条数 > 0 即 AI 模式');
+  assert.equal(isAi('custom_key', 0), true);
+  assert.equal(isAi('energy', 3), true);
 });
 
 test('side-panel AI toggle ON forces AI mode even in standard config', () => {
@@ -65,10 +61,11 @@ test('side-panel AI toggle ON forces AI mode even in standard config', () => {
   assert.equal(isAi('energy', undefined, true), true);
   assert.equal(isAi(undefined, undefined, true), true, '未配置 + 开关 ON → AI');
 
-  // 开关 OFF / 未定义：维持原有判断（custom_key 或 greetingCount>0）
-  assert.equal(isAi('energy', 0, false), false, '开关 OFF + 标准模式 → 非 AI');
-  assert.equal(isAi('energy', 0, undefined), false, '开关未定义等同 OFF');
-  assert.equal(isAi('custom_key', 0, false), true, '开关 OFF + custom_key 仍为 AI');
+  // 专用分支即使开关关闭也仍走 AI
+  assert.equal(isAi('energy', 0, false), true);
+  assert.equal(isAi('energy', 0, undefined), true);
+  assert.equal(isAi('custom_key', 0, false), true);
+  assert.equal(isAi('energy', 3, false), true);
 });
 
 // === greetingCount 应真正驱动 generate_greeting 生成 N 条候选 ===
@@ -116,9 +113,10 @@ test('greeting user prompt: 未传 count 走单段（与旧调用方兼容）', 
 test('prepareChatSystemPrompt: count>1 时追加 N 条指令，与 user prompt 一致', () => {
   // 避免与 DEFAULT_CHAT_SYSTEM_PROMPT 的"生成一段"矛盾：count>1 时 system 也要配合要求多条。
   const prep = loadFn('src/background/runtime.js', 'prepareChatSystemPrompt');
-  // count=1 / 未传：原样返回 base，不注入
-  assert.equal(prep('我的风格', 1), '我的风格');
-  assert.equal(prep('我的风格', undefined), '我的风格');
+  // count=1 / 未传：保留 base，并注入事实约束
+  assert.ok(prep('我的风格', 1).startsWith('我的风格'));
+  assert.ok(prep('我的风格', 1).includes('禁止以“我是/我叫/本人是”开头'));
+  assert.ok(prep('我的风格', undefined).includes('只能使用简历中明确出现的真实信息'));
   // count=3：保留原 base 并追加多条指令
   const sys3 = prep('我的风格', 3);
   assert.ok(sys3.startsWith('我的风格'), '保留原 system prompt');
